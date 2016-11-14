@@ -7,7 +7,7 @@
     "example": "examples"
   },
   "scripts": {
-    "export": "webpack",
+    "export": "webpack && webpack --minified",
     "postinstall": "cp node_modules/webrtc-adapter/out/adapter.js src/js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -34,6 +34,7 @@
     "babel-core": "^6.18.2",
     "babel-loader": "^6.2.7",
     "babel-preset-es2015": "^6.18.0",
+    "minimist": "^1.2.0",
     "webpack": "^1.13.3",
     "webrtc-adapter": "^2.0.6"
   }

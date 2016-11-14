@@ -1,10 +1,20 @@
 let path = require('path');
 let webpack = require('webpack');
 
+const argv = require('minimist')(process.argv.slice(2));
+let filename;
+let plugins = [];
+if (argv.minified) {
+    plugins.push(new webpack.optimize.UglifyJsPlugin({minimize: true}));
+    filename = 'drawr-core.min.js';
+} else {
+    filename = 'drawr-core.js';
+}
+
 module.exports = {
     entry: './src/index.js',
     output: {
-        filename: 'dist/drawr-core.min.js',
+        filename: `dist/${filename}`,
         library: 'Drawr'
     },
     module: {
@@ -12,7 +22,5 @@ module.exports = {
             {test: /\.js$/, exclude: /node_modules/, loader: "babel-loader"}
         ]
     },
-    plugins: [
-        new webpack.optimize.UglifyJsPlugin({minimize: true})
-    ]
+    plugins: plugins
 }
