@@ -70,7 +70,6 @@ let DrawingCanvas = function(divId) {
     this.clickColor = [];
 }
 
-
 DrawingCanvas.prototype.addClick = function(x, y, color, dragging = false) {
     this.clickX.push(x);
     this.clickY.push(y);
@@ -99,3 +98,5 @@ DrawingCanvas.prototype.redraw = function() {
         this.context.stroke();
     }
 }
+
+module.exports = DrawingCanvas;

@@ -1,1 +1,4 @@
 samples
+node_modules
+dist
+src/js/adapter.js

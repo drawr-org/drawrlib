@@ -1,0 +1,40 @@
+{
+  "name": "drawr-jslib",
+  "version": "1.0.0",
+  "description": "draw core js library",
+  "main": "src/index.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "export": "webpack",
+    "postinstall": "cp node_modules/webrtc-adapter/out/adapter.js src/js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/drawr-team/core-lib.git"
+  },
+  "author": "drawr-team",
+  "contributors": [
+    {
+      "name": "Pedro Scaff",
+      "email": "pedrinho.scaff@gmail.com",
+      "url": "github.com/pedroscaff"
+    }
+  ],
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/drawr-team/core-lib/issues"
+  },
+  "homepage": "https://github.com/drawr-team/core-lib#readme",
+  "devDependencies": {
+    "babel": "^6.5.2",
+    "babel-cli": "^6.18.0",
+    "babel-core": "^6.18.2",
+    "babel-loader": "^6.2.7",
+    "babel-preset-es2015": "^6.18.0",
+    "webpack": "^1.13.3",
+    "webrtc-adapter": "^2.0.6"
+  }
+}
