@@ -9,7 +9,7 @@
   "scripts": {
     "start": "karma start",
     "export": "webpack && webpack --minified",
-    "postinstall": "cp node_modules/webrtc-adapter/out/adapter.js src/js",
+    "postinstall": "cp node_modules/webrtc-adapter/out/adapter.js src/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -36,10 +36,12 @@
     "babel-loader": "^6.2.7",
     "babel-preset-es2015": "^6.18.0",
     "chai": "^3.5.0",
+    "istanbul-instrumenter-loader": "^1.0.0",
     "jasmine-core": "^2.5.2",
     "karma": "^1.3.0",
     "karma-chai": "^0.1.0",
     "karma-chrome-launcher": "^2.0.0",
+    "karma-coverage": "^1.1.1",
     "karma-jasmine": "^1.0.2",
     "karma-mocha": "^1.3.0",
     "karma-webpack": "^1.8.0",

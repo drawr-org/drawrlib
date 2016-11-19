@@ -1,4 +1,5 @@
 samples
 node_modules
 dist
-src/js/adapter.js
+src/adapter.js
+coverage

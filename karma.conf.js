@@ -1,6 +1,8 @@
 // Karma configuration
 // Generated on Sat Nov 19 2016 00:50:37 GMT+0100 (CET)
 
+const path = require('path');
+
 module.exports = function(config) {
     config.set({
 
@@ -15,27 +17,41 @@ module.exports = function(config) {
 
         // list of files / patterns to load in the browser
         files: [
-          'src/js/*.spec.js'
+            'src/test/*.spec.js',
+            // {pattern: 'src/js/*.js)', included: false}
         ],
 
 
         // list of files to exclude
         exclude: [
-          'src/index.js'
+            'src/index.js'
         ],
 
 
         // preprocess matching files before serving them to the browser
         // available preprocessors: https://npmjs.org/browse/keyword/karma-preprocessor
         preprocessors: {
-            'src/js/*.spec.js': ['webpack']
+            'src/js/*.js': ['coverage'],
+            'src/test/*.spec.js': ['webpack']
         },
 
+        webpack: {
+            module: {
+                preLoaders: [
+                    // instrument only testing sources with Istanbul
+                    {
+                        test: /\.js$/,
+                        include: path.resolve('src/js/'),
+                        loader: 'istanbul-instrumenter'
+                    }
+                ]
+            }
+        },
 
         // test results reporter to use
         // possible values: 'dots', 'progress'
         // available reporters: https://npmjs.org/browse/keyword/karma-reporter
-        reporters: ['progress'],
+        reporters: ['progress', 'coverage'],
 
 
         // web server port
