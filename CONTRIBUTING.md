@@ -17,4 +17,5 @@ This guide should give a developer all information to start contributing to the 
 
 ## Package npm scripts
 
-* `npm run export` - exports library to `dist/drawr-core.js`
+* `npm start` - starts karma server for tests
+* `npm run export` - exports library to `dist/drawr-core.js` and `dist/drawr-core.min.js`

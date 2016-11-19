@@ -6,11 +6,7 @@ function mousedownListener(e) {
     let mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) -
         this.canvas.offsetTop;
     this.paint = true;
-    this.addClick(
-        e.pageX - this.canvas.offsetLeft,
-        e.pageY - this.canvas.offsetTop,
-        '#1a7fcc'
-    );
+    this.addClick(mouseX, mouseY, '#1a7fcc');
     this.redraw();
 }
 
@@ -20,9 +16,7 @@ function mousemoveListener(e) {
     let mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) -
         this.canvas.offsetTop;
     if (this.paint) {
-        this.addClick(
-            mouseX, mouseY, '#1a7fcc', true
-        );
+        this.addClick(mouseX, mouseY, '#1a7fcc', true);
         this.redraw();
     }
     // Prevent the whole page from dragging if on mobile
@@ -59,7 +53,7 @@ let DrawingCanvas = function(divId) {
     this.canvas = document.createElement('canvas');
     this.canvas.setAttribute('width', '300');
     this.canvas.setAttribute('height', '600');
-    this.canvas.setAttribute('id', 'canvas');
+    this.canvas.setAttribute('class', 'DrawingCanvas');
     this.canvasDiv.appendChild(this.canvas);
     this.paint = false;
     setEventListeners.apply(this);
