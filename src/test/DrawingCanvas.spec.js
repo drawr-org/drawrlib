@@ -1,5 +1,5 @@
 describe('DrawingCanvas', function () {
-    let DrawingCanvas = require('./DrawingCanvas.js');
+    let DrawingCanvas = require('./../index.js').DrawingCanvas;
 
     it('should create new canvas', function () {
         let body = document.getElementsByTagName('body')[0];
@@ -7,6 +7,6 @@ describe('DrawingCanvas', function () {
         div.setAttribute('id', 'myCanvasId');
         body.appendChild(div);
         let canvas = new DrawingCanvas('myCanvasId');
-        expect(canvas).to.be.an.instanceOf(DrawingCanvas);
+        expect(canvas).to.be.an.instanceOf(Array);
     });
 });

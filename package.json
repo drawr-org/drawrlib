@@ -7,10 +7,9 @@
     "example": "examples"
   },
   "scripts": {
-    "start": "karma start",
     "export": "webpack && webpack --minified",
     "postinstall": "cp node_modules/webrtc-adapter/out/adapter.js src/",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "karma start"
   },
   "repository": {
     "type": "git",
