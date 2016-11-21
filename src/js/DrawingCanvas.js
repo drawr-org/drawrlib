@@ -49,6 +49,11 @@ function setEventListeners() {
 }
 
 let DrawingCanvas = function(divId) {
+    this.stylingOptions = {
+      colour: '#cb3594',
+      width: 8,
+      type: 'pen'
+    };
     this.canvasDiv = document.getElementById(divId);
     this.canvas = document.createElement('canvas');
     this.canvas.setAttribute('width', '300');
@@ -62,7 +67,12 @@ let DrawingCanvas = function(divId) {
     this.clickY = [];
     this.clickDrag = [];
     this.clickColor = [];
+<<<<<<< bf80e1b454014d9dab8b27f4b21ce83024b7a90f
 };
+=======
+    this.clickSize = [];
+}
+>>>>>>> try to make styling as an object of the canvas function
 
 DrawingCanvas.prototype.addClick = function(x, y, color, dragging = false) {
     this.clickX.push(x);
