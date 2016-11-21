@@ -7,6 +7,6 @@ describe('DrawingCanvas', function () {
         div.setAttribute('id', 'myCanvasId');
         body.appendChild(div);
         let canvas = new DrawingCanvas('myCanvasId');
-        expect(canvas).to.be.an.instanceOf(Array);
+        expect(canvas).to.be.an.instanceOf(DrawingCanvas);
     });
 });
