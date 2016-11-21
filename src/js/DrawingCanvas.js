@@ -62,14 +62,14 @@ let DrawingCanvas = function(divId) {
     this.clickY = [];
     this.clickDrag = [];
     this.clickColor = [];
-}
+};
 
 DrawingCanvas.prototype.addClick = function(x, y, color, dragging = false) {
     this.clickX.push(x);
     this.clickY.push(y);
     this.clickDrag.push(dragging);
     this.clickColor.push(color);
-}
+};
 
 DrawingCanvas.prototype.redraw = function() {
     this.context.clearRect(
@@ -91,6 +91,6 @@ DrawingCanvas.prototype.redraw = function() {
         this.context.closePath();
         this.context.stroke();
     }
-}
+};
 
 module.exports = DrawingCanvas;
