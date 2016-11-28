@@ -1,13 +1,5 @@
 'use strict';
 
-let drawingAreaX = 290;
-let drawingAreaY = 590;
-let drawingAreaWidth = 10;
-let drawingAreaHeight = 10;
-let toolHotspotStartY = 10;
-let toolHotspotHeight = 10;
-let curTool = "crayon";
-
 function mousedownListener(e) {
 
     let mouseX = e.pageX - this.offsetLeft;
@@ -19,6 +11,11 @@ function mousedownListener(e) {
 }
 
 function mousemoveListener(e) {
+    let drawingAreaX = 290;
+    let drawingAreaY = 590;
+    let drawingAreaWidth = 10;
+    let drawingAreaHeight = 10;
+
     let mouseX = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) -
         this.canvas.offsetLeft;
     let mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) -
