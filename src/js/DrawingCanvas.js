@@ -1,13 +1,21 @@
 'use strict';
 
+let drawingAreaX = 290;
+let drawingAreaY = 590;
+let drawingAreaWidth = 10;
+let drawingAreaHeight = 10;
+let toolHotspotStartY = 10;
+let toolHotspotHeight = 10;
+let curTool = "crayon";
+
 function mousedownListener(e) {
-    let mouseX = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) -
-        this.canvas.offsetLeft;
-    let mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) -
-        this.canvas.offsetTop;
-    this.paint = true;
-    this.addClick(mouseX, mouseY, '#1a7fcc');
-    this.redraw();
+
+    let mouseX = e.pageX - this.offsetLeft;
+		let mouseY = e.pageY - this.offsetTop;
+
+    		this.paint = true;
+    		this.addClick(mouseX, mouseY, false);
+    		this.redraw();
 }
 
 function mousemoveListener(e) {
@@ -15,12 +23,39 @@ function mousemoveListener(e) {
         this.canvas.offsetLeft;
     let mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) -
         this.canvas.offsetTop;
-    if (this.paint) {
-        this.addClick(mouseX, mouseY, '#1a7fcc', true);
-        this.redraw();
+    if(mouseX < drawingAreaX && mouseY < drawingAreaY)
+    {
+      if(mouseX > drawingAreaWidth && mouseY > 0)
+      {
+        if (this.paint) {
+            this.addClick(
+                mouseX, mouseY, true
+            );
+            this.redraw();
+        }
+        // Prevent the whole page from dragging if on mobile
+        e.preventDefault();
+      }
+      else {
+        if (this.paint) {
+            this.addClick(
+                mouseX, mouseY, false
+            );
+            this.redraw();
+        }
+      }
+
     }
-    // Prevent the whole page from dragging if on mobile
-    e.preventDefault();
+    else {
+      if (this.paint) {
+          this.addClick(
+              mouseX, mouseY, false
+          );
+          this.redraw();
+      }
+      // Prevent the whole page from dragging if on mobile
+      e.preventDefault();
+    }
 }
 
 function mouseupListener() {
@@ -50,8 +85,8 @@ function setEventListeners() {
 
 let DrawingCanvas = function(divId) {
     this.stylingOptions = {
-      colour: '#cb3594',
-      width: 8,
+      colour: '#ffcf33',
+      width: 'large',
       type: 'pen'
     };
     this.canvasDiv = document.getElementById(divId);
@@ -67,29 +102,35 @@ let DrawingCanvas = function(divId) {
     this.clickY = [];
     this.clickDrag = [];
     this.clickColor = [];
-<<<<<<< bf80e1b454014d9dab8b27f4b21ce83024b7a90f
-};
-=======
     this.clickSize = [];
 }
->>>>>>> try to make styling as an object of the canvas function
 
-DrawingCanvas.prototype.addClick = function(x, y, color, dragging = false) {
+DrawingCanvas.prototype.addClick = function(x, y, dragging) {
     this.clickX.push(x);
     this.clickY.push(y);
     this.clickDrag.push(dragging);
-    this.clickColor.push(color);
+    this.clickColor.push(this.stylingOptions.colour);
+    this.clickSize.push(this.stylingOptions.width);
 };
 
 DrawingCanvas.prototype.redraw = function() {
     this.context.clearRect(
         0, 0, this.context.canvas.width, this.context.canvas.height
     );
-
     this.context.lineJoin = 'round';
-    this.context.lineWidth = 5;
-
+    let radius = 5;
     for (let i = 0; i < this.clickX.length; i++) {
+        if(this.clickSize[i] == "small") {
+          radius = 2;
+        } else if (this.clickSize[i] == "normal") {
+          radius = 5;
+        } else if (this.clickSize[i] == "large") {
+          radius = 10;
+        } else if (this.clickSize[i] == "huge") {
+          radius = 20;
+        } else {
+          radius = 0;
+        }
         this.context.beginPath();
         this.context.strokeStyle = this.clickColor[i];
         if (this.clickDrag[i] && i) {
@@ -99,6 +140,7 @@ DrawingCanvas.prototype.redraw = function() {
         }
         this.context.lineTo(this.clickX[i], this.clickY[i]);
         this.context.closePath();
+        this.context.lineWidth = radius;
         this.context.stroke();
     }
 };
