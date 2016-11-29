@@ -22,6 +22,11 @@
         "semi": [
             "error",
             "always"
+        ],
+        "no-console": 0,
+        "brace-style": [
+            "error",
+            "1tbs"
         ]
     }
 }
