@@ -11,7 +11,7 @@
     "export": "webpack && webpack --minified",
     "postinstall": "cp node_modules/webrtc-adapter/out/adapter.js src/",
     "test": "karma start",
-    "commit-test": "npm run export && npm run lint",
+    "commit-test": "./commit-test.sh",
     "lint": "eslint src/** --ignore-pattern src/adapter.js"
   },
   "repository": {
