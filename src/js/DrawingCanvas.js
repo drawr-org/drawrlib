@@ -1,5 +1,8 @@
 'use strict';
 
+let scaleX = 1.5;
+let scaleY = 1.2;
+
 function mousedownListener(e) {
     let mouseX = e.pageX - this.offsetLeft;
     let mouseY = e.pageY - this.offsetTop;
@@ -75,23 +78,25 @@ let DrawingCanvas = function(divId) {
     };
     this.canvasDiv = document.getElementById(divId);
     this.canvas = document.createElement('canvas');
-    this.canvas.setAttribute('width', '300');
-    this.canvas.setAttribute('height', '600');
+    this.canvas.setAttribute('width', '300'*scaleX);
+    this.canvas.setAttribute('height', '600'*scaleY);
     this.canvas.setAttribute('class', 'DrawingCanvas');
     this.canvasDiv.appendChild(this.canvas);
     this.paint = false;
     setEventListeners.apply(this);
     this.context = this.canvas.getContext('2d');
+    this.context.scale(scaleX, scaleY);
     this.clickX = [];
     this.clickY = [];
     this.clickDrag = [];
     this.clickColor = [];
     this.clickSize = [];
+
 };
 
 DrawingCanvas.prototype.addClick = function(x, y, dragging) {
-    this.clickX.push(x);
-    this.clickY.push(y);
+    this.clickX.push(x/scaleX);
+    this.clickY.push(y/scaleY);
     this.clickDrag.push(dragging);
     this.clickColor.push(this.stylingOptions.colour);
     this.clickSize.push(this.stylingOptions.width);
@@ -127,6 +132,10 @@ DrawingCanvas.prototype.redraw = function() {
         this.context.lineWidth = radius;
         this.context.stroke();
     }
+};
+
+DrawingCanvas.prototype.addImage = function(inputImg, x, y) {
+    this.context.drawImage(inputImg, 0, 0, 100, 100, x, y, scaleX, scaleY);
 };
 
 module.exports = DrawingCanvas;
