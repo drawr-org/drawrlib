@@ -1,58 +1,45 @@
 'use strict';
 
 function mousedownListener(e) {
-
     let mouseX = e.pageX - this.offsetLeft;
-		let mouseY = e.pageY - this.offsetTop;
+    let mouseY = e.pageY - this.offsetTop;
 
-    		this.paint = true;
-    		this.addClick(mouseX, mouseY, false);
-    		this.redraw();
+    this.paint = true;
+    this.addClick(mouseX, mouseY, false);
+    this.redraw();
 }
 
 function mousemoveListener(e) {
     let drawingAreaX = 290;
     let drawingAreaY = 590;
     let drawingAreaWidth = 10;
-    let drawingAreaHeight = 10;
+    // let drawingAreaHeight = 10;
 
     let mouseX = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) -
         this.canvas.offsetLeft;
     let mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) -
         this.canvas.offsetTop;
-    if(mouseX < drawingAreaX && mouseY < drawingAreaY)
-    {
-      if(mouseX > drawingAreaWidth && mouseY > 0)
-      {
-        if (this.paint) {
-            this.addClick(
-                mouseX, mouseY, true
-            );
-            this.redraw();
+    if (mouseX < drawingAreaX && mouseY < drawingAreaY) {
+        if (mouseX > drawingAreaWidth && mouseY > 0) {
+            if (this.paint) {
+                this.addClick(mouseX, mouseY, true);
+                this.redraw();
+            }
+        } else {
+            if (this.paint) {
+                this.addClick(mouseX, mouseY, false);
+                this.redraw();
+            }
         }
-        // Prevent the whole page from dragging if on mobile
-        e.preventDefault();
-      }
-      else {
-        if (this.paint) {
-            this.addClick(
-                mouseX, mouseY, false
-            );
-            this.redraw();
-        }
-      }
 
+    } else {
+        if (this.paint) {
+            this.addClick(mouseX, mouseY, false);
+            this.redraw();
+        }
     }
-    else {
-      if (this.paint) {
-          this.addClick(
-              mouseX, mouseY, false
-          );
-          this.redraw();
-      }
-      // Prevent the whole page from dragging if on mobile
-      e.preventDefault();
-    }
+    // Prevent the whole page from dragging if on mobile
+    e.preventDefault();
 }
 
 function mouseupListener() {
@@ -82,9 +69,9 @@ function setEventListeners() {
 
 let DrawingCanvas = function(divId) {
     this.stylingOptions = {
-      colour: '#ffcf33',
-      width: 'large',
-      type: 'pen'
+        colour: '#ffcf33',
+        width: 'large',
+        type: 'pen'
     };
     this.canvasDiv = document.getElementById(divId);
     this.canvas = document.createElement('canvas');
@@ -100,7 +87,7 @@ let DrawingCanvas = function(divId) {
     this.clickDrag = [];
     this.clickColor = [];
     this.clickSize = [];
-}
+};
 
 DrawingCanvas.prototype.addClick = function(x, y, dragging) {
     this.clickX.push(x);
@@ -117,21 +104,21 @@ DrawingCanvas.prototype.redraw = function() {
     this.context.lineJoin = 'round';
     let radius = 5;
     for (let i = 0; i < this.clickX.length; i++) {
-        if(this.clickSize[i] == "small") {
-          radius = 2;
-        } else if (this.clickSize[i] == "normal") {
-          radius = 5;
-        } else if (this.clickSize[i] == "large") {
-          radius = 10;
-        } else if (this.clickSize[i] == "huge") {
-          radius = 20;
+        if (this.clickSize[i] == 'small') {
+            radius = 2;
+        } else if (this.clickSize[i] == 'normal') {
+            radius = 5;
+        } else if (this.clickSize[i] == 'large') {
+            radius = 10;
+        } else if (this.clickSize[i] == 'huge') {
+            radius = 20;
         } else {
-          radius = 0;
+            radius = 0;
         }
         this.context.beginPath();
         this.context.strokeStyle = this.clickColor[i];
         if (this.clickDrag[i] && i) {
-            this.context.moveTo(this.clickX[i-1], this.clickY[i-1]);
+            this.context.moveTo(this.clickX[i - 1], this.clickY[i - 1]);
         } else {
             this.context.moveTo(this.clickX[i] - 1, this.clickY[i]);
         }

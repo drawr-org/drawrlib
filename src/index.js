@@ -1,6 +1,5 @@
 require('./adapter.js');
-let DrawingCanvas = require('./js/DrawingCanvas.js');
 
 module.exports = {
-    DrawingCanvas: DrawingCanvas
+    DrawingCanvas: require('./js/DrawingCanvas.js')
 };
