@@ -91,7 +91,7 @@ let DrawingCanvas = function(divId) {
     this.clickDrag = [];
     this.clickColor = [];
     this.clickSize = [];
-
+    this.lastDraw = 0;
 };
 
 DrawingCanvas.prototype.addClick = function(x, y, dragging) {
@@ -103,12 +103,9 @@ DrawingCanvas.prototype.addClick = function(x, y, dragging) {
 };
 
 DrawingCanvas.prototype.redraw = function() {
-    this.context.clearRect(
-        0, 0, this.context.canvas.width, this.context.canvas.height
-    );
     this.context.lineJoin = 'round';
     let radius = 5;
-    for (let i = 0; i < this.clickX.length; i++) {
+    for (let i = this.lastDraw; i < this.clickX.length; i++) {
         if (this.clickSize[i] == 'small') {
             radius = 2;
         } else if (this.clickSize[i] == 'normal') {
@@ -132,6 +129,7 @@ DrawingCanvas.prototype.redraw = function() {
         this.context.lineWidth = radius;
         this.context.stroke();
     }
+    this.lastDraw = this.clickX.length;
 };
 
 DrawingCanvas.prototype.addImage = function(inputImg, x, y) {

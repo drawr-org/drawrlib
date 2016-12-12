@@ -1,4 +1,4 @@
-let path = require('path');
+/* eslint-env node */
 let webpack = require('webpack');
 
 const argv = require('minimist')(process.argv.slice(2));
@@ -19,8 +19,8 @@ module.exports = {
     },
     module: {
         loaders: [
-            {test: /\.js$/, exclude: /node_modules/, loader: "babel-loader"}
+            {test: /\.js$/, exclude: /node_modules/, loader: 'babel-loader'}
         ]
     },
     plugins: plugins
-}
+};
