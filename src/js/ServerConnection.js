@@ -1,13 +1,15 @@
 'use strict';
 
-let W3CWebSocket = require('websocket').w3cwebsocket;
+// let W3CWebSocket = require('websocket').w3cwebsocket;
 let EventEmitter = require('eventemitter3');
 
 function onWebSocketOpen() {
     console.log('connected to server');
-    this.wsClient.send(
-        JSON.stringify({type: 'hello world', data: 'it\'s me'})
-    );
+    if (this.wsClient.readyState === this.wsClient.OPEN) {
+        this.wsClient.send(
+            JSON.stringify({type: 'hello world', data: 'it\'s me'})
+        );
+    }
 }
 
 function onWebSocketMessage(event) {
@@ -23,11 +25,12 @@ function onWebSocketMessage(event) {
 
 let ServerConnection = function() {
     this.eventEmitter = new EventEmitter();
-    this.wsClient = new W3CWebSocket();
+    // this.wsClient = new W3CWebSocket();
+    this.wsClient = new WebSocket();
     this.wsClient.onopen = onWebSocketOpen.bind(this);
     this.wsClient.onmessage = onWebSocketMessage.bind(this);
     this.wsClient.onerror = this.onWebSocketError;
-    // client.connect('ws://golang-server');
+    this.wsClient.connect('ws://localhost:8080/ws');
 };
 
 ServerConnection.prototype.onWebSocketError = function() {

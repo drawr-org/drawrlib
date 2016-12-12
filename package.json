@@ -58,6 +58,7 @@
     "webpack": "^1.13.3"
   },
   "dependencies": {
-    "webrtc-adapter": "^2.0.8"
+    "webrtc-adapter": "^2.0.8",
+    "websocket": "^1.0.23"
   }
 }
