@@ -26,13 +26,16 @@ function onWebSocketMessage(event) {
 let ServerConnection = function() {
     this.eventEmitter = new EventEmitter();
     // this.wsClient = new W3CWebSocket();
-    this.wsClient = new WebSocket();
+    console.log('hi');
+    this.wsClient = new WebSocket('ws://localhost:8080/ws');
     this.wsClient.onopen = onWebSocketOpen.bind(this);
     this.wsClient.onmessage = onWebSocketMessage.bind(this);
     this.wsClient.onerror = this.onWebSocketError;
-    this.wsClient.connect('ws://localhost:8080/ws');
+    // this.wsClient.connect('ws://localhost:8080/ws');
 };
 
 ServerConnection.prototype.onWebSocketError = function() {
     console.log('error connecting to server');
 };
+
+module.exports = ServerConnection;
