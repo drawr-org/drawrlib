@@ -104,7 +104,7 @@ DrawingCanvas.prototype.addClick = function(x, y, dragging) {
 
 DrawingCanvas.prototype.redraw = function() {
     this.context.lineJoin = 'round';
-    let radius = 5;
+    let radius;
     for (let i = this.lastDraw; i < this.clickX.length; i++) {
         if (this.clickSize[i] == 'small') {
             radius = 2;
