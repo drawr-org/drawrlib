@@ -1,7 +1,3 @@
-.DrawingCanvas {
-    border: 1px solid #000000;
-}
-
 .fullscreen {
   position: fixed;
   top: 0;
@@ -9,5 +5,5 @@
   bottom: 0;
   right: 0;
   overflow: auto;
-  background: lime; /* Just to visualize the extent */
+  /*background: lime; /* Just to visualize the extent */*/
 }

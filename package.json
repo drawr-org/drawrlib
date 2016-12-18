@@ -8,11 +8,11 @@
   },
   "scripts": {
     "start": "webpack --watch",
-    "export": "webpack && webpack --minified",
+    "export": "cp src/style.css dist/style.css && webpack && webpack --minified",
     "postinstall": "cp node_modules/webrtc-adapter/out/adapter.js src/",
     "test": "karma start",
     "commit-test": "./commit-test.sh",
-    "lint": "eslint src/** --ignore-pattern src/adapter.js"
+    "lint": "eslint src/** --ignore-path src/adapter.js src/style.css"
   },
   "repository": {
     "type": "git",
