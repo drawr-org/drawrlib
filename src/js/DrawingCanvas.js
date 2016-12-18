@@ -73,7 +73,7 @@ function setEventListeners() {
 }
 
 let DrawingCanvas = function(divId, options) {
-    this.stylingOptions = Object.assign(STANDARD_OPTIONS, options);
+    this.stylingOptions = Object.assign({}, STANDARD_OPTIONS, options);
     this.canvasDiv = document.getElementById(divId);
     this.canvas = document.createElement('canvas');
     this.canvas.setAttribute('class', 'DrawingCanvas');
