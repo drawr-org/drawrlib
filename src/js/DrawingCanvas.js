@@ -1,7 +1,7 @@
 'use strict';
 
 const STANDARD_OPTIONS = {
-    colour: '#ffcf33',
+    colour: '#000000',
     width: 'large',
     type: 'pen'
 };
@@ -138,13 +138,13 @@ DrawingCanvas.prototype.redraw = function(hard = false) {
         this.lastDraw = 0;
     }
     for (let i = this.lastDraw; i < this.clickX.length; i++) {
-        if (this.clickSize[i] == 'small') {
+        if (this.clickSize[i] === 'small') {
             radius = 2;
-        } else if (this.clickSize[i] == 'normal') {
+        } else if (this.clickSize[i] === 'normal') {
             radius = 5;
-        } else if (this.clickSize[i] == 'large') {
+        } else if (this.clickSize[i] === 'large') {
             radius = 10;
-        } else if (this.clickSize[i] == 'huge') {
+        } else if (this.clickSize[i] === 'huge') {
             radius = 20;
         } else {
             radius = 0;
