@@ -38,7 +38,9 @@ let ServerConnection = function(user) {
 ServerConnection.prototype.initSession = function(sessionData) {
     this.session.id = sessionData.sessionId;
     // this.session.users = sessionData.users;
-    // this.eventEmitter.emit('new-session-connection', session);
+    if (this.session.clientCallback) {
+        this.session.clientCallback(sessionData);
+    }
 };
 
 ServerConnection.prototype.onWebSocketError = function() {
