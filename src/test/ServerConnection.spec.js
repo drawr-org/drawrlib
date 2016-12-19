@@ -6,7 +6,7 @@ describe('ServerConnection', function() {
         server = new Drawr.ServerConnection({
             name: 'pedro'
         });
-        server.eventEmitter.on('connect', done);
+        server.addEventListener('connect', done);
     });
 
     it('should create new session', function(done) {

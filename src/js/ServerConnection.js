@@ -3,52 +3,116 @@
 // let W3CWebSocket = require('websocket').w3cwebsocket;
 let EventEmitter = require('eventemitter3');
 
+/**
+ * error handling if websocket fails to connect
+ * @returns {void}
+ */
+function onWebSocketError() {
+    console.log('error connecting to ws server');
+}
+
+/**
+ * emit event when websocket connection is open
+ * @returns {void}
+ */
 function onWebSocketOpen() {
     console.log('connected to server');
-    if (this.wsClient.readyState === this.wsClient.OPEN) {
-        this.eventEmitter.emit('connected');
+    if (this._wsClient.readyState === this._wsClient.OPEN) {
+        this._eventEmitter.emit('connected');
     }
 }
 
+/**
+ * handle wedsocket messages from server
+ * @param {Object} event - websocket event data
+ * @returns {void}
+ */
 function onWebSocketMessage(event) {
     let msg = JSON.parse(event.data);
-    console.log(msg);
     if (msg.type === 'ack-session') {
         if (msg.status === 'new-session-success') {
-
-            this.initSession(msg.data);
+            this._initSession(msg.data);
+        } else if (msg.status === 'join-session-success') {
+            this._initSession(msg.data);
         }
     } else if (msg.type === 'newPeer') {
-        this.eventEmitter.emit('newPeer', msg);
+        this._eventEmitter.emit('newPeer', msg);
     }
 }
 
+/**
+ * @typedef {Object} User
+ * @property {String} name
+ */
+
+/**
+ * creates a new server connection
+ * @constructor
+ * @param {User} user - user to connect to server
+ */
 let ServerConnection = function(user) {
-    this.user = user;
-    this.eventEmitter = new EventEmitter();
-    // this.wsClient = new W3CWebSocket();
-    this.wsClient = new WebSocket('ws://rmbp.lan:8080/ws');
-    this.wsClient.onopen = onWebSocketOpen.bind(this);
-    this.wsClient.onmessage = onWebSocketMessage.bind(this);
-    this.wsClient.onerror = this.onWebSocketError;
-    this.session = {};
-    // this.wsClient.connect('ws://rmbp.lan:8080/ws');
+    this._user = user;
+    this._eventEmitter = new EventEmitter();
+    // this._wsClient = new W3CWebSocket();
+    this._wsClient = new WebSocket('ws://rmbp.lan:8080/ws');
+    this._wsClient.onopen = onWebSocketOpen.bind(this);
+    this._wsClient.onmessage = onWebSocketMessage.bind(this);
+    this._wsClient.onerror = onWebSocketError.bind(this);
+    this._session = {};
+    // this._wsClient.connect('ws://rmbp.lan:8080/ws');
 };
 
-ServerConnection.prototype.initSession = function(sessionData) {
-    this.session.id = sessionData.sessionId;
-    // this.session.users = sessionData.users;
-    if (this.session.clientCallback) {
-        this.session.clientCallback(sessionData);
+/* Private methods */
+
+/**
+ * @typedef {Object} SessionData
+ * @property {String} sessionId
+ * @property {Array} users
+ */
+
+/**
+ * set session data
+ * @param {SessionData} sessionData - object with session information
+ * @returns {void}
+ */
+ServerConnection.prototype._initSession = function(sessionData) {
+    this._session.id = sessionData.sessionId;
+    // this._session.users = sessionData.users;
+    if (this._session.clientCallback) {
+        this._session.clientCallback(sessionData);
     }
 };
 
-ServerConnection.prototype.onWebSocketError = function() {
-    console.log('error connecting to server');
+/* Public API */
+
+/**
+ * add listener to server event
+ * @param {String} name - event name
+ * @param {String} listener - function to be executed on event
+ * @returns {void}
+ */
+ServerConnection.prototype.addEventListener = function(name, listener) {
+    if (typeof name !== 'string') {
+        throw new Error('event name must be a string');
+    }
+    this._eventEmitter.on(name, listener);
 };
 
-ServerConnection.prototype.joinSession = function(sessionId) {
-    this.wsClient.send(
+/**
+ * join an existing session via session id
+ * @param {String} sessionId - id of the session to join
+ * @param {Function} callback - called after server returns answer
+ * @returns {void}
+ */
+ServerConnection.prototype.joinSession = function(sessionId, callback) {
+    if (callback) {
+        if (typeof callback !== 'function') {
+            throw new Error('callback must be a function');
+        } else {
+            this._session.clientCallback = callback;
+        }
+    }
+    this._wsClient.send(
         JSON.stringify({
             type: 'join-session',
             data: {
@@ -59,15 +123,21 @@ ServerConnection.prototype.joinSession = function(sessionId) {
     );
 };
 
+/**
+ * creates a new session with given name
+ * @param {String} name - session name
+ * @param {Function} callback - called after server returns answer
+ * @returns {void}
+ */
 ServerConnection.prototype.newSession = function(name, callback) {
     if (callback) {
         if (typeof callback !== 'function') {
             throw new Error('callback must be a function');
         } else {
-            this.session.clientCallback = callback;
+            this._session.clientCallback = callback;
         }
     }
-    this.wsClient.send(
+    this._wsClient.send(
         JSON.stringify({
             type: 'new-session',
             data: {
