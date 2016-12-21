@@ -1,4 +1,4 @@
-describe('DrawingCanvas', function() {
+describe.only('DrawingCanvas', function() {
     let Drawr = require('./../index.js');
     let DrawingCanvas = Drawr.DrawingCanvas;
     let canvas;
@@ -19,13 +19,13 @@ describe('DrawingCanvas', function() {
         canvas.updateOptions({
             width: 'normal'
         });
-        expect(canvas.stylingOptions.width).to.be.equal('normal');
+        expect(canvas._stylingOptions.width).to.be.equal('normal');
     });
 
     it('should change zoom', function() {
-        canvas.changeZoom(1);
+        canvas.setZoom(1);
         // new scale should be set
-        expect(canvas.scaleX).to.be.equal(0.9);
-        expect(canvas.scaleY).to.be.equal(0.9);
+        expect(canvas._scaleX).to.be.equal(0.9);
+        expect(canvas._scaleY).to.be.equal(0.9);
     });
 });

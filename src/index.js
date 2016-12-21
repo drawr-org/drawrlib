@@ -1,6 +1,4 @@
-require('./adapter.js');
-
 module.exports = {
-    DrawingCanvas: require('./js/DrawingCanvas.js'),
-    ServerConnection: require('./js/ServerConnection.js')
+    DrawingCanvas: require('./lib/DrawingCanvas.js'),
+    ServerConnection: require('./lib/ServerConnection.js')
 };

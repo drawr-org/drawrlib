@@ -54,12 +54,12 @@ let ServerConnection = function(user) {
     this._user = user;
     this._eventEmitter = new EventEmitter();
     // this._wsClient = new W3CWebSocket();
+    // this._wsClient.connect('ws://rmbp.lan:8080/ws');
     this._wsClient = new WebSocket('ws://rmbp.lan:8080/ws');
     this._wsClient.onopen = onWebSocketOpen.bind(this);
     this._wsClient.onmessage = onWebSocketMessage.bind(this);
     this._wsClient.onerror = onWebSocketError.bind(this);
     this._session = {};
-    // this._wsClient.connect('ws://rmbp.lan:8080/ws');
 };
 
 /* Private methods */
@@ -89,13 +89,14 @@ ServerConnection.prototype._initSession = function(sessionData) {
  * add listener to server event
  * @param {String} name - event name
  * @param {String} listener - function to be executed on event
+ * @param {Context} context - context (this value) to execute listener
  * @returns {void}
  */
-ServerConnection.prototype.addEventListener = function(name, listener) {
+ServerConnection.prototype.addEventListener = function(name, listener, context) {
     if (typeof name !== 'string') {
         throw new Error('event name must be a string');
     }
-    this._eventEmitter.on(name, listener);
+    this._eventEmitter.on(name, listener, context);
 };
 
 /**
