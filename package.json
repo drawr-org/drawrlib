@@ -9,10 +9,10 @@
   "scripts": {
     "start": "webpack --watch",
     "export": "cp src/style.css dist/style.css && webpack && webpack --minified",
-    "postinstall": "cp node_modules/webrtc-adapter/out/adapter.js src/",
     "test": "karma start",
     "commit-test": "./commit-test.sh",
-    "lint": "eslint src/** --ignore-path src/adapter.js src/style.css"
+    "doc": "jsdoc --package package.json src/lib/",
+    "lint": "eslint src/** --ignore-pattern src/style.css"
   },
   "repository": {
     "type": "git",
@@ -46,6 +46,7 @@
     "eslint": "^3.11.1",
     "istanbul-instrumenter-loader": "^1.0.0",
     "jasmine-core": "^2.5.2",
+    "jsdoc": "^3.4.3",
     "karma": "^1.3.0",
     "karma-chai": "^0.1.0",
     "karma-chrome-launcher": "^2.0.0",
@@ -58,6 +59,7 @@
     "webpack": "^1.13.3"
   },
   "dependencies": {
-    "webrtc-adapter": "^2.0.8"
+    "eventemitter3": "^2.0.2",
+    "websocket": "^1.0.23"
   }
 }
