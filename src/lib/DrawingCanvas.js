@@ -135,7 +135,7 @@ DrawingCanvas.prototype._addClick = function(x, y, dragging) {
         x: x/this._scaleX,
         y: y/this._scaleY,
         drag: dragging,
-        style: this._stylingOptions,
+        style: Object.assign({}, this._stylingOptions),
         remote: false
     });
     this._redraw();
@@ -155,10 +155,11 @@ DrawingCanvas.prototype._remoteUpdate = function(data) {
 /**
  * get index of last click made by local user
  * @private
- * @return {Number} index
+ * @param {Number} index - index from where to start looking
+ * @return {Number} index - last local index from given click
  */
-DrawingCanvas.prototype._getLastLocalClick = function() {
-    for (let i = this._clicks.length-2; i > 0; i--) {
+DrawingCanvas.prototype._getLastLocalClick = function(index) {
+    for (let i = index; i > 0; i--) {
         if (!this._clicks[i].remote) {
             return i;
         }
@@ -198,7 +199,7 @@ DrawingCanvas.prototype._redraw = function(hard = false) {
             } else {
                 // remote clicks might be rendered while user is dragging
                 // if this is the case, point should be connected to last local click, not a remote one
-                let lastLocalClick = this._getLastLocalClick();
+                let lastLocalClick = this._getLastLocalClick(i-1);
                 this._context.moveTo(
                     this._clicks[lastLocalClick].x,
                     this._clicks[lastLocalClick].y
