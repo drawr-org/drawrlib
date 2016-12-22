@@ -11,7 +11,7 @@
     "export": "cp src/style.css dist/style.css && webpack && webpack --minified",
     "test": "karma start",
     "commit-test": "./commit-test.sh",
-    "doc": "jsdoc -c ./node_modules/ink-docstrap/template/jsdoc.conf.json -t ./node_modules/ink-docstrap/template -R README.md -r ./src/lib/",
+    "doc": "jsdoc -c jsdoc.conf.json -t ./node_modules/ink-docstrap/template -R README.md -r ./src/lib/",
     "lint": "eslint src/** --ignore-pattern src/style.css"
   },
   "repository": {
