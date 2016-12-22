@@ -11,7 +11,7 @@
     "export": "cp src/style.css dist/style.css && webpack && webpack --minified",
     "test": "karma start",
     "commit-test": "./commit-test.sh",
-    "doc": "jsdoc --package package.json src/lib/",
+    "doc": "jsdoc -c ./node_modules/ink-docstrap/template/jsdoc.conf.json -t ./node_modules/ink-docstrap/template -R README.md -r ./src/lib/",
     "lint": "eslint src/** --ignore-pattern src/style.css"
   },
   "repository": {
@@ -44,6 +44,7 @@
     "babel-preset-es2015": "^6.18.0",
     "chai": "^3.5.0",
     "eslint": "^3.11.1",
+    "ink-docstrap": "^1.3.0",
     "istanbul-instrumenter-loader": "^1.0.0",
     "jasmine-core": "^2.5.2",
     "jsdoc": "^3.4.3",

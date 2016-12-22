@@ -5,6 +5,7 @@ let EventEmitter = require('eventemitter3');
 
 /**
  * error handling if websocket fails to connect
+ * @private
  * @returns {void}
  */
 function onWebSocketError() {
@@ -13,6 +14,7 @@ function onWebSocketError() {
 
 /**
  * emit event when websocket connection is open
+ * @private
  * @returns {void}
  */
 function onWebSocketOpen() {
@@ -24,6 +26,7 @@ function onWebSocketOpen() {
 
 /**
  * handle wedsocket messages from server
+ * @private
  * @param {Object} event - websocket event data
  * @returns {void}
  */
@@ -72,6 +75,7 @@ let ServerConnection = function(user) {
 
 /**
  * set session data
+ * @private
  * @param {SessionData} sessionData - object with session information
  * @returns {void}
  */

@@ -8,6 +8,7 @@ const STANDARD_OPTIONS = {
 
 /**
  * listener to click on canvas
+ * @private
  * @param {Object} e - event data
  * @returns {void}
  */
@@ -21,6 +22,7 @@ function mousedownListener(e) {
 
 /**
  * listener to move on canvas
+ * @private
  * @param {Object} e - event data
  * @returns {void}
  */
@@ -55,6 +57,7 @@ function mousemoveListener(e) {
 
 /**
  * listener to finishing draw on canvas
+ * @private
  * @returns {void}
  */
 function mouseupListener() {
@@ -63,6 +66,7 @@ function mouseupListener() {
 
 /**
  * set click listeners on canvas
+ * @private
  * @returns {void}
  */
 function setEventListeners() {
@@ -115,10 +119,12 @@ let DrawingCanvas = function(divId, options) {
     this._zoom = 0;
     this._scaleX = 1;
     this._scaleY = 1;
+    this._lastDraw = 0;
 };
 
 /**
  * add and draw changes to canvas
+ * @private
  * @param {Number} x - x coordinate
  * @param {Number} y - y coordinate
  * @param {Boolean} dragging - if point should be connected to last one
@@ -134,24 +140,28 @@ DrawingCanvas.prototype._addClick = function(x, y, dragging) {
     this._redraw();
 };
 
+/**
+ * add clicks coming from server
+ * @private
+ * @param {Object} data - clicks coming from server
+ * @returns {void}
+ */
 DrawingCanvas.prototype._remoteUpdate = function(data) {
     this._clicks = this._clicks.concat(data.clicks);
     this._redraw();
 };
 
+/**
+ * add clicks coming from server
+ * @private
+ * @param {Boolean} hard - if true, clears and rescale canvas, and redraws all clicks
+ * @returns {void}
+ */
 DrawingCanvas.prototype._redraw = function(hard = false) {
     this._context.lineJoin = 'round';
     let radius;
     if (hard) {
-        // restore original context to clear full canvas
-        this._context.restore();
-        this._context.clearRect(
-            0, 0, this._width, this._height
-        );
-        // save it again for transformations
-        this._context.save();
-        this._context.scale(this._scaleX, this._scaleY);
-        this._lastDraw = 0;
+        this.clearCanvas();
     }
     for (let i = this._lastDraw; i < this._clicks.length; i++) {
         if (this._clicks[i].style.width === 'small') {
@@ -180,16 +190,49 @@ DrawingCanvas.prototype._redraw = function(hard = false) {
     this._lastDraw = this._clicks.length;
 };
 
-DrawingCanvas.prototype.addImage = function(inputImg, x, y) {
+/**
+ * clear all clicks from canvas
+ * @returns {void}
+ */
+DrawingCanvas.prototype.clearCanvas = function() {
+    // restore original context to clear full canvas
+    this._context.restore();
+    this._context.clearRect(
+        0, 0, this._width, this._height
+    );
+    // save it again for transformations
+    this._context.save();
+    this._context.scale(this._scaleX, this._scaleY);
+    this._lastDraw = 0;
+};
+
+/**
+ * add image to canvas at given coordinates
+ * @param {Object} img - image to be draw
+ * @param {Number} x - x coordinate
+ * @param {Number} y - y coordinate
+ * @returns {void}
+ */
+DrawingCanvas.prototype.addImage = function(img, x, y) {
     this._context.drawImage(
-        inputImg, 0, 0, 100, 100, x, y, this._scaleX, this._scaleY
+        img, 0, 0, 100, 100, x, y, this._scaleX, this._scaleY
     );
 };
 
+/**
+ * updates styling options
+ * @param {Object} options - new option to be set
+ * @returns {void}
+ */
 DrawingCanvas.prototype.updateOptions = function(options) {
     Object.assign(this._stylingOptions, options);
 };
 
+/**
+ * set new zoom level and calls redraw
+ * @param {Number} zoom - new zoom level
+ * @returns {void}
+ */
 DrawingCanvas.prototype.setZoom = function(zoom) {
     if (isNaN(zoom) || zoom < 0) {
         throw new Error('zoom must be an integer bigger than zero');
@@ -200,6 +243,11 @@ DrawingCanvas.prototype.setZoom = function(zoom) {
     this._redraw(true);
 };
 
+/**
+ * connect canvas to online session
+ * @param {ServerConnection} server - ServerConnection instance to connect
+ * @returns {void}
+ */
 DrawingCanvas.prototype.connectToSession = function(server) {
     server.addEventListener('update-canvas', this._remoteUpdate, this);
 };
