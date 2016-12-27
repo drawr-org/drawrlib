@@ -1,5 +1,7 @@
 'use strict';
 
+let EventEmitter = require('eventemitter3');
+
 const STANDARD_OPTIONS = {
     colour: '#000000',
     width: 'large',
@@ -62,6 +64,19 @@ function mousemoveListener(e) {
  */
 function mouseupListener() {
     this._paint = false;
+    let clicks = [];
+    let totalLength = this._clicks.length - 1;
+    // add last click
+    clicks.push(this._clicks[totalLength]);
+    if (clicks[0].drag) {
+        // add all dragging clicks
+        let lastLocalClick = this._getLastLocalClick(totalLength - 1);
+        while (this._clicks[lastLocalClick].drag && lastLocalClick) {
+            clicks.unshift(this._clicks[lastLocalClick]);
+            lastLocalClick = this._getLastLocalClick(lastLocalClick - 1);
+        }
+    }
+    this._eventEmitter.emit('new-click', clicks);
 }
 
 /**
@@ -113,6 +128,7 @@ let DrawingCanvas = function(divId, options) {
     this._paint = false;
     setEventListeners.apply(this);
     this._context = this._canvas.getContext('2d');
+    this._eventEmitter = new EventEmitter();
     // save original context for transformations
     this._context.save();
     this._clicks = [];
@@ -159,12 +175,11 @@ DrawingCanvas.prototype._remoteUpdate = function(data) {
  * @return {Number} index - last local index from given click
  */
 DrawingCanvas.prototype._getLastLocalClick = function(index) {
-    for (let i = index; i > 0; i--) {
+    for (let i = index; i >= 0; i--) {
         if (!this._clicks[i].remote) {
             return i;
         }
     }
-    return 0;
 };
 
 /**
@@ -177,7 +192,7 @@ DrawingCanvas.prototype._redraw = function(hard = false) {
     this._context.lineJoin = 'round';
     let radius;
     if (hard) {
-        this.clearCanvas();
+        this.clearCanvas(false);
     }
     for (let i = this._lastDraw; i < this._clicks.length; i++) {
         if (this._clicks[i].style.width === 'small') {
@@ -200,10 +215,12 @@ DrawingCanvas.prototype._redraw = function(hard = false) {
                 // remote clicks might be rendered while user is dragging
                 // if this is the case, point should be connected to last local click, not a remote one
                 let lastLocalClick = this._getLastLocalClick(i-1);
-                this._context.moveTo(
-                    this._clicks[lastLocalClick].x,
-                    this._clicks[lastLocalClick].y
-                );
+                if (lastLocalClick) {
+                    this._context.moveTo(
+                        this._clicks[lastLocalClick].x,
+                        this._clicks[lastLocalClick].y
+                    );
+                }
             }
         } else {
             this._context.moveTo(this._clicks[i].x - 1, this._clicks[i].y);
@@ -218,9 +235,10 @@ DrawingCanvas.prototype._redraw = function(hard = false) {
 
 /**
  * clear all clicks from canvas
+ * @param {Boolean} removeClicks - if clear is just for rescaling and redraw, set to false to don't remove made clicks
  * @returns {void}
  */
-DrawingCanvas.prototype.clearCanvas = function() {
+DrawingCanvas.prototype.clearCanvas = function(removeClicks = true) {
     // restore original context to clear full canvas
     this._context.restore();
     this._context.clearRect(
@@ -230,6 +248,12 @@ DrawingCanvas.prototype.clearCanvas = function() {
     this._context.save();
     this._context.scale(this._scaleX, this._scaleY);
     this._lastDraw = 0;
+    if (removeClicks) {
+        this._clicks = [];
+        this._zoom = 0;
+        this._scaleX = 1;
+        this._scaleY = 1;
+    }
 };
 
 /**
@@ -276,6 +300,20 @@ DrawingCanvas.prototype.setZoom = function(zoom) {
  */
 DrawingCanvas.prototype.connectToSession = function(server) {
     server.addEventListener('update-canvas', this._remoteUpdate, this);
+};
+
+/**
+ * add listener to server event
+ * @param {String} name - event name
+ * @param {String} listener - function to be executed on event
+ * @param {Context} context - context (this value) to execute listener
+ * @returns {void}
+ */
+DrawingCanvas.prototype.addEventListener = function(name, listener, context) {
+    if (typeof name !== 'string') {
+        throw new Error('event name must be a string');
+    }
+    this._eventEmitter.on(name, listener, context);
 };
 
 module.exports = DrawingCanvas;

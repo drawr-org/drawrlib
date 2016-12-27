@@ -18,20 +18,17 @@ module.exports = function(config) {
         // list of files / patterns to load in the browser
         files: [
             'src/test/*.spec.js',
-            // {pattern: 'src/js/*.js)', included: false}
         ],
 
 
         // list of files to exclude
-        exclude: [
-            'src/index.js'
-        ],
+        exclude: [],
 
 
         // preprocess matching files before serving them to the browser
         // available preprocessors: https://npmjs.org/browse/keyword/karma-preprocessor
         preprocessors: {
-            'src/js/*.js': ['coverage'],
+            'src/lib/*.js': ['coverage'],
             'src/test/*.spec.js': ['webpack']
         },
 
@@ -41,7 +38,7 @@ module.exports = function(config) {
                     // instrument only testing sources with Istanbul
                     {
                         test: /\.js$/,
-                        include: path.resolve('src/js/'),
+                        include: path.resolve('src/lib/'),
                         loader: 'istanbul-instrumenter'
                     }
                 ]

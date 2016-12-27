@@ -22,10 +22,59 @@ describe.only('DrawingCanvas', function() {
         expect(canvas._stylingOptions.width).to.be.equal('normal');
     });
 
+    it('should throw error with wrong zoom', function() {
+        expect(canvas.setZoom).to.throw(
+            Error, 'zoom must be an integer bigger than zero'
+        );
+    });
+
     it('should change zoom', function() {
         canvas.setZoom(1);
         // new scale should be set
         expect(canvas._scaleX).to.be.equal(0.9);
         expect(canvas._scaleY).to.be.equal(0.9);
+    });
+
+    it('should return index of local click', function() {
+        // array used: [localClick, remoteClick, localClick]
+        // add local click
+        canvas._addClick(100, 100, false);
+        canvas._remoteUpdate({
+            clicks: {
+                x: 200,
+                y: 200,
+                drag: false,
+                style: canvas._stylingOptions,
+                remote: true
+            }
+        });
+        // add another local click
+        canvas._addClick(150, 150, false);
+        expect(canvas._getLastLocalClick(1)).to.be.equal(0);
+    });
+
+    it('should throw error with empty event string', function() {
+        expect(canvas.addEventListener).to.throw(
+            Error, 'event name must be a string'
+        );
+    });
+
+    it('should add event listener', function(done) {
+        let Context = function() {
+            this.prop = 'test';
+        };
+        let context = new Context();
+        canvas.addEventListener('test', function() {
+            // check if context (this value) was passed as well
+            expect(this.prop).to.be.equal('test');
+            done();
+        }, context);
+        canvas._eventEmitter.emit('test');
+    });
+
+    it('should clear canvas', function() {
+        canvas._addClick(100, 100, false);
+        canvas.clearCanvas();
+        expect(canvas._clicks).to.have.lengthOf(0);
     });
 });
