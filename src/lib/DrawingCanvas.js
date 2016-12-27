@@ -303,15 +303,18 @@ DrawingCanvas.prototype.connectToSession = function(server) {
 };
 
 /**
- * add listener to server event
+ * add listener to canvas event
  * @param {String} name - event name
- * @param {String} listener - function to be executed on event
+ * @param {Function} listener - function to be executed on event
  * @param {Context} context - context (this value) to execute listener
  * @returns {void}
  */
 DrawingCanvas.prototype.addEventListener = function(name, listener, context) {
     if (typeof name !== 'string') {
         throw new Error('event name must be a string');
+    }
+    if (typeof listener !== 'function') {
+        throw new Error('listener must be a function');
     }
     this._eventEmitter.on(name, listener, context);
 };

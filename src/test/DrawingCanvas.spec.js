@@ -54,8 +54,14 @@ describe.only('DrawingCanvas', function() {
     });
 
     it('should throw error with empty event string', function() {
-        expect(canvas.addEventListener).to.throw(
+        expect(canvas.addEventListener.bind(null, {})).to.throw(
             Error, 'event name must be a string'
+        );
+    });
+
+    it('should throw error when listener is not a function', function() {
+        expect(canvas.addEventListener.bind(null, 'test', {})).to.throw(
+            Error, 'listener must be a function'
         );
     });
 
