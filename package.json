@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "webpack --watch",
-    "export": "cp src/style.css dist/style.css && webpack && webpack --minified",
+    "preexport": "mkdir -p dist && cp src/style.css dist/style.css",
+    "export": "webpack && webpack --minified",
     "test": "karma start",
     "commit-test": "./commit-test.sh",
     "doc": "jsdoc -c jsdoc.conf.json -t ./node_modules/ink-docstrap/template -R README.md -r ./src/lib/",
