@@ -15,6 +15,7 @@ const STANDARD_OPTIONS = {
  * @returns {void}
  */
 function mousedownListener(e) {
+    this._timeDragging = window.performance.now();
     let mouseX = e.pageX - this._canvas.offsetLeft;
     let mouseY = e.pageY - this._canvas.offsetTop;
 
@@ -41,16 +42,21 @@ function mousemoveListener(e) {
         if (mouseX > drawingAreaWidth && mouseY > 0) {
             if (this._paint) {
                 this._addClick(mouseX, mouseY, true);
-            }
-        } else {
-            if (this._paint) {
-                this._addClick(mouseX, mouseY, false);
+                let t = window.performance.now();
+                if (t - this._timeDragging > 2000) {
+                    this._wrapAndEmitClicks();
+                    this._timeDragging = t;
+                }
             }
         }
-
     } else {
         if (this._paint) {
             this._addClick(mouseX, mouseY, false);
+            let t = window.performance.now();
+            if (t - this._timeDragging > 2000) {
+                this._wrapAndEmitClicks();
+                this._timeDragging = t;
+            }
         }
     }
     // Prevent the whole page from dragging if on mobile
@@ -64,24 +70,7 @@ function mousemoveListener(e) {
  */
 function mouseupListener() {
     this._paint = false;
-    let clicks = [];
-    let totalLength = this._clicks.length - 1;
-    // add last click
-    let clickCp = Object.assign({}, this._clicks[totalLength], {remote: true});
-    clicks.push(clickCp);
-    if (clicks[0].drag) {
-        // add all dragging clicks
-        let lastLocalClick = this._getLastLocalClick(totalLength - 1);
-        while (this._clicks[lastLocalClick].drag && lastLocalClick) {
-            let clickCp = Object.assign(
-                {}, this._clicks[lastLocalClick], {remote: true}
-            );
-            clicks.unshift(clickCp);
-            lastLocalClick = this._getLastLocalClick(lastLocalClick - 1);
-        }
-    }
-    clicks[0].pathStart = true;
-    this._eventEmitter.emit('new-click', clicks);
+    this._wrapAndEmitClicks();
 }
 
 /**
@@ -225,6 +214,27 @@ DrawingCanvas.prototype._redraw = function(hard = false) {
         this._context.stroke();
     }
     this._lastDraw = this._clicks.length;
+};
+
+DrawingCanvas.prototype._wrapAndEmitClicks = function () {
+    let clicks = [];
+    let totalLength = this._clicks.length - 1;
+    // add last click
+    let clickCp = Object.assign({}, this._clicks[totalLength], {remote: true});
+    clicks.push(clickCp);
+    if (clicks[0].drag) {
+        // add all dragging clicks
+        let lastLocalClick = this._getLastLocalClick(totalLength - 1);
+        while (this._clicks[lastLocalClick].drag && lastLocalClick) {
+            let clickCp = Object.assign(
+                {}, this._clicks[lastLocalClick], {remote: true}
+            );
+            clicks.unshift(clickCp);
+            lastLocalClick = this._getLastLocalClick(lastLocalClick - 1);
+        }
+    }
+    clicks[0].pathStart = true;
+    this._eventEmitter.emit('new-click', clicks);
 };
 
 /**
