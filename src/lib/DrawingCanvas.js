@@ -67,10 +67,7 @@ function mouseupListener() {
     let clicks = [];
     let totalLength = this._clicks.length - 1;
     // add last click
-    let clickCp = Object.assign({}, this._clicks[totalLength], {
-        remote: true,
-        pathStart: true
-    });
+    let clickCp = Object.assign({}, this._clicks[totalLength], {remote: true});
     clicks.push(clickCp);
     if (clicks[0].drag) {
         // add all dragging clicks
@@ -83,6 +80,7 @@ function mouseupListener() {
             lastLocalClick = this._getLastLocalClick(lastLocalClick - 1);
         }
     }
+    clicks[0].pathStart = true;
     this._eventEmitter.emit('new-click', clicks);
 }
 
