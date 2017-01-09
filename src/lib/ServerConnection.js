@@ -40,6 +40,8 @@ function onWebSocketMessage(event) {
         }
     } else if (msg.type === 'newPeer') {
         this._eventEmitter.emit('newPeer', msg);
+    } else if (msg.type === 'update-canvas') {
+        this._eventEmitter.emit('update-canvas', msg.data);
     }
 }
 
@@ -52,13 +54,14 @@ function onWebSocketMessage(event) {
  * creates a new server connection
  * @constructor
  * @param {User} user - user to connect to server
+ * @param {String} serverUrl - websocket server url
  */
-let ServerConnection = function(user) {
+let ServerConnection = function(user, serverUrl) {
     this._user = user;
     this._eventEmitter = new EventEmitter();
     // this._wsClient = new W3CWebSocket();
     // this._wsClient.connect('ws://rmbp.lan:8080/ws');
-    this._wsClient = new WebSocket('ws://rmbp.lan:8080/ws');
+    this._wsClient = new WebSocket(serverUrl);
     this._wsClient.onopen = onWebSocketOpen.bind(this);
     this._wsClient.onmessage = onWebSocketMessage.bind(this);
     this._wsClient.onerror = onWebSocketError.bind(this);
@@ -149,8 +152,21 @@ ServerConnection.prototype.newSession = function(name, callback) {
         JSON.stringify({
             type: 'new-session',
             data: {
-                username: this.user.name,
+                username: this._user.name,
                 sessionName: name
+            }
+        })
+    );
+};
+
+ServerConnection.prototype.sendCanvasUpdate = function(clicks) {
+    this._wsClient.send(
+        JSON.stringify({
+            type: 'update-canvas',
+            data: {
+                username: this._user.name,
+                sessionId: '',
+                canvasState: JSON.stringify(clicks)
             }
         })
     );

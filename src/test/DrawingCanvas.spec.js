@@ -23,7 +23,7 @@ describe.only('DrawingCanvas', function() {
     });
 
     it('should throw error with wrong zoom', function() {
-        expect(canvas.setZoom).to.throw(
+        expect(canvas.setZoom.bind(canvas, -1)).to.throw(
             Error, 'zoom must be an integer bigger than zero'
         );
     });
@@ -39,7 +39,7 @@ describe.only('DrawingCanvas', function() {
         // array used: [localClick, remoteClick, localClick]
         // add local click
         canvas._addClick(100, 100, false);
-        canvas._remoteUpdate({
+        canvas.remoteUpdate({
             clicks: {
                 x: 200,
                 y: 200,
@@ -54,13 +54,13 @@ describe.only('DrawingCanvas', function() {
     });
 
     it('should throw error with empty event string', function() {
-        expect(canvas.addEventListener.bind(null, {})).to.throw(
+        expect(canvas.addEventListener.bind(canvas, {})).to.throw(
             Error, 'event name must be a string'
         );
     });
 
     it('should throw error when listener is not a function', function() {
-        expect(canvas.addEventListener.bind(null, 'test', {})).to.throw(
+        expect(canvas.addEventListener.bind(canvas, 'test', {})).to.throw(
             Error, 'listener must be a function'
         );
     });

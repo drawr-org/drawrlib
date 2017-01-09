@@ -67,12 +67,19 @@ function mouseupListener() {
     let clicks = [];
     let totalLength = this._clicks.length - 1;
     // add last click
-    clicks.push(this._clicks[totalLength]);
+    let clickCp = Object.assign({}, this._clicks[totalLength], {
+        remote: true,
+        pathStart: true
+    });
+    clicks.push(clickCp);
     if (clicks[0].drag) {
         // add all dragging clicks
         let lastLocalClick = this._getLastLocalClick(totalLength - 1);
         while (this._clicks[lastLocalClick].drag && lastLocalClick) {
-            clicks.unshift(this._clicks[lastLocalClick]);
+            let clickCp = Object.assign(
+                {}, this._clicks[lastLocalClick], {remote: true}
+            );
+            clicks.unshift(clickCp);
             lastLocalClick = this._getLastLocalClick(lastLocalClick - 1);
         }
     }
@@ -158,17 +165,6 @@ DrawingCanvas.prototype._addClick = function(x, y, dragging) {
 };
 
 /**
- * add clicks coming from server
- * @private
- * @param {Object} data - clicks coming from server
- * @returns {void}
- */
-DrawingCanvas.prototype._remoteUpdate = function(data) {
-    this._clicks = this._clicks.concat(data.clicks);
-    this._redraw();
-};
-
-/**
  * get index of last click made by local user
  * @private
  * @param {Number} index - index from where to start looking
@@ -208,7 +204,7 @@ DrawingCanvas.prototype._redraw = function(hard = false) {
         }
         this._context.beginPath();
         this._context.strokeStyle = this._clicks[i].style.colour;
-        if (this._clicks[i].drag && i) {
+        if (this._clicks[i].drag && i && !this._clicks[i].pathStart) {
             if (this._clicks[i].remote) {
                 this._context.moveTo(this._clicks[i-1].x, this._clicks[i-1].y);
             } else {
@@ -270,6 +266,16 @@ DrawingCanvas.prototype.addImage = function(img, x, y) {
 };
 
 /**
+ * add clicks coming from server
+ * @param {Object} clicks - clicks coming from server
+ * @returns {void}
+ */
+DrawingCanvas.prototype.remoteUpdate = function(clicks) {
+    this._clicks = this._clicks.concat(clicks);
+    this._redraw();
+};
+
+/**
  * updates styling options
  * @param {Object} options - new option to be set
  * @returns {void}
@@ -291,15 +297,6 @@ DrawingCanvas.prototype.setZoom = function(zoom) {
     this._scaleX = 1 - this._zoom*0.1;
     this._scaleY = 1 - this._zoom*0.1;
     this._redraw(true);
-};
-
-/**
- * connect canvas to online session
- * @param {ServerConnection} server - ServerConnection instance to connect
- * @returns {void}
- */
-DrawingCanvas.prototype.connectToSession = function(server) {
-    server.addEventListener('update-canvas', this._remoteUpdate, this);
 };
 
 /**
