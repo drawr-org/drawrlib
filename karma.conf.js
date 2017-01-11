@@ -1,7 +1,30 @@
 // Karma configuration
 // Generated on Sat Nov 19 2016 00:50:37 GMT+0100 (CET)
 
+/* eslint-env node */
+
 const path = require('path');
+const argv = require('minimist')(process.argv.slice(2));
+
+let files = [];
+if (argv.examples) {
+    // export library for examples
+    let webpack = require('webpack');
+    // returns a Compiler instance
+    let compiler = webpack(require('./webpack.config.js'));
+    compiler.watch({ // watch options:
+        aggregateTimeout: 300, // wait so long for more changes
+        poll: true // use polling instead of native watchers
+    }, function(err) {
+        throw err;
+    });
+    files.push(
+        {pattern: 'examples/**/*', watched: false, included: false},
+        {pattern: 'dist/*', watched: false, included: false, nocache: true}
+    );
+} else if (argv.test) {
+    files.push('src/test/*spec.js');
+}
 
 module.exports = function(config) {
     config.set({
@@ -16,9 +39,7 @@ module.exports = function(config) {
 
 
         // list of files / patterns to load in the browser
-        files: [
-            'src/test/*.spec.js',
-        ],
+        files: files,
 
 
         // list of files to exclude
@@ -75,7 +96,7 @@ module.exports = function(config) {
 
         // Continuous Integration mode
         // if true, Karma captures browsers, runs the tests and exits
-        singleRun: true,
+        singleRun: false,
 
         // Concurrency level
         // how many browser should be started simultaneous

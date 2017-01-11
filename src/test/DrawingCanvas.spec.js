@@ -24,7 +24,7 @@ describe.only('DrawingCanvas', function() {
 
     it('should throw error with wrong zoom', function() {
         expect(canvas.setZoom.bind(canvas, -1)).to.throw(
-            Error, 'zoom must be an integer bigger than zero'
+            Error, 'zoom must be an integer equal or bigger than zero'
         );
     });
 

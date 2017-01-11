@@ -7,10 +7,10 @@
     "example": "examples"
   },
   "scripts": {
-    "start": "webpack --watch",
+    "start": "karma start",
     "preexport": "mkdir -p dist && cp src/style.css dist/style.css",
     "export": "webpack && webpack --minified",
-    "test": "karma start",
+    "test": "karma start --singleRun --test",
     "commit-test": "./commit-test.sh",
     "doc": "jsdoc -c jsdoc.conf.json -t ./node_modules/ink-docstrap/template -R README.md -r ./src/lib/",
     "lint": "eslint src/** --ignore-pattern src/style.css"

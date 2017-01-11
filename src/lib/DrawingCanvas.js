@@ -250,7 +250,11 @@ DrawingCanvas.prototype.clearCanvas = function(removeClicks = true) {
     );
     // save it again for transformations
     this._context.save();
+    let xTranslation = (this._width/this._scaleX) / (this._zoom);
+    let yTranslation = (this._height/this._scaleY) / (this._zoom);
+    this._context.translate(xTranslation, yTranslation);
     this._context.scale(this._scaleX, this._scaleY);
+    this._context.translate(-xTranslation, -yTranslation);
     this._lastDraw = 0;
     if (removeClicks) {
         this._clicks = [];
@@ -299,7 +303,7 @@ DrawingCanvas.prototype.updateOptions = function(options) {
  */
 DrawingCanvas.prototype.setZoom = function(zoom) {
     if (isNaN(zoom) || zoom < 0) {
-        throw new Error('zoom must be an integer bigger than zero');
+        throw new Error('zoom must be an integer equal or bigger than zero');
     }
     this._zoom = zoom;
     this._scaleX = 1 - this._zoom*0.1;

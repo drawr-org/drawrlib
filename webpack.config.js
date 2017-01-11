@@ -6,9 +6,9 @@ let filename;
 let plugins = [];
 if (argv.minified) {
     plugins.push(new webpack.optimize.UglifyJsPlugin({minimize: true}));
-    filename = 'drawr-core.min.js';
+    filename = 'drawr.min.js';
 } else {
-    filename = 'drawr-core.js';
+    filename = 'drawr.js';
 }
 
 module.exports = {
