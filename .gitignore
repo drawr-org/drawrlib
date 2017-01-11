@@ -5,3 +5,4 @@ src/adapter.js
 coverage
 webrtc-web
 out
+npm-debug.log

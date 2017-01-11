@@ -5,8 +5,11 @@
 
 const path = require('path');
 const argv = require('minimist')(process.argv.slice(2));
+const UNIT_TESTS = 'src/test/*spec.js';
+const SOURCE_FILES = 'src/lib/*.js';
 
 let files = [];
+let preprocessors = {};
 if (argv.examples) {
     // export library for examples
     let webpack = require('webpack');
@@ -15,15 +18,22 @@ if (argv.examples) {
     compiler.watch({ // watch options:
         aggregateTimeout: 300, // wait so long for more changes
         poll: true // use polling instead of native watchers
-    }, function(err) {
-        throw err;
+    }, (err) => {
+        if (err) {
+            throw err;
+        }
     });
     files.push(
         {pattern: 'examples/**/*', watched: false, included: false},
         {pattern: 'dist/*', watched: false, included: false, nocache: true}
     );
 } else if (argv.test) {
-    files.push('src/test/*spec.js');
+    files.push(UNIT_TESTS);
+    preprocessors[UNIT_TESTS] = ['webpack'];
+    preprocessors[SOURCE_FILES] = ['coverage'];
+} else {
+    console.log('please use --examples or --test option!');
+    process.exit(1);
 }
 
 module.exports = function(config) {
@@ -48,10 +58,7 @@ module.exports = function(config) {
 
         // preprocess matching files before serving them to the browser
         // available preprocessors: https://npmjs.org/browse/keyword/karma-preprocessor
-        preprocessors: {
-            'src/lib/*.js': ['coverage'],
-            'src/test/*.spec.js': ['webpack']
-        },
+        preprocessors: preprocessors,
 
         webpack: {
             module: {
