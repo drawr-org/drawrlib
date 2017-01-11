@@ -40,13 +40,11 @@ describe.only('DrawingCanvas', function() {
         // add local click
         canvas._addClick(100, 100, false);
         canvas.remoteUpdate({
-            clicks: {
-                x: 200,
-                y: 200,
-                drag: false,
-                style: canvas._stylingOptions,
-                remote: true
-            }
+            x: 200,
+            y: 200,
+            drag: false,
+            style: canvas._stylingOptions,
+            remote: true
         });
         // add another local click
         canvas._addClick(150, 150, false);
