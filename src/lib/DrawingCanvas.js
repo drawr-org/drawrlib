@@ -2,10 +2,15 @@
 
 let EventEmitter = require('eventemitter3');
 
+const DRAWING_TOOLS = {
+    PEN: 'pen',
+    ERASER: 'eraser'
+};
+
 const STANDARD_OPTIONS = {
     colour: '#000000',
-    width: 'large',
-    type: 'pen'
+    width: 10,
+    type: DRAWING_TOOLS.PEN
 };
 
 /**
@@ -20,6 +25,9 @@ function mousedownListener(e) {
     let mouseY = e.pageY - this._canvas.offsetTop;
 
     this._paint = true;
+    // click will start on next index
+    // save to be able to undo
+    this._clickStarts.push(this._lastDraw + 1);
     this._addClick(mouseX, mouseY, false);
 }
 
@@ -130,6 +138,7 @@ let DrawingCanvas = function(divId, options) {
     this._scaleX = 1;
     this._scaleY = 1;
     this._lastDraw = 0;
+    this._clickStarts = [];
 };
 
 /**
@@ -173,22 +182,10 @@ DrawingCanvas.prototype._getLastLocalClick = function(index) {
  */
 DrawingCanvas.prototype._redraw = function(hard = false) {
     this._context.lineJoin = 'round';
-    let radius;
     if (hard) {
         this.clearCanvas(false);
     }
     for (let i = this._lastDraw; i < this._clicks.length; i++) {
-        if (this._clicks[i].style.width === 'small') {
-            radius = 2;
-        } else if (this._clicks[i].style.width === 'normal') {
-            radius = 5;
-        } else if (this._clicks[i].style.width === 'large') {
-            radius = 10;
-        } else if (this._clicks[i].style.width === 'huge') {
-            radius = 20;
-        } else {
-            radius = 0;
-        }
         this._context.beginPath();
         this._context.strokeStyle = this._clicks[i].style.colour;
         if (this._clicks[i].drag && i && !this._clicks[i].pathStart) {
@@ -210,10 +207,10 @@ DrawingCanvas.prototype._redraw = function(hard = false) {
         }
         this._context.lineTo(this._clicks[i].x, this._clicks[i].y);
         this._context.closePath();
-        this._context.lineWidth = radius;
+        this._context.lineWidth = this._clicks[i].style.colour;
         this._context.stroke();
     }
-    this._lastDraw = this._clicks.length;
+    this._lastDraw = this._clicks.length - 1;
 };
 
 DrawingCanvas.prototype._wrapAndEmitClicks = function () {
@@ -283,6 +280,7 @@ DrawingCanvas.prototype.addImage = function(img, x, y) {
  * @returns {void}
  */
 DrawingCanvas.prototype.remoteUpdate = function(clicks) {
+    this._clickStarts.push(this._lastDraw + 1);
     this._clicks = this._clicks.concat(clicks);
     this._redraw();
 };
@@ -293,6 +291,9 @@ DrawingCanvas.prototype.remoteUpdate = function(clicks) {
  * @returns {void}
  */
 DrawingCanvas.prototype.updateOptions = function(options) {
+    if (options.type === DRAWING_TOOLS.ERASER) {
+        options.colour = '#FFFFFF';
+    }
     Object.assign(this._stylingOptions, options);
 };
 
@@ -327,5 +328,26 @@ DrawingCanvas.prototype.addEventListener = function(name, listener, context) {
     }
     this._eventEmitter.on(name, listener, context);
 };
+
+/**
+ * undo last click
+ * @returns {void}
+ */
+DrawingCanvas.prototype.undoLastClick = function() {
+    let initialIndex = this._clickStarts.pop();
+    if (initialIndex) {
+        this._clicks.splice(
+            initialIndex, this._clicks.length - initialIndex
+        );
+        this._redraw(true);
+    }
+};
+
+/**
+ * @static {Object} drawingTools
+ * @prop {String} PEN - pen-like drawing
+ * @prop {String} ERASER - eraser
+ */
+DrawingCanvas.drawingTools = DRAWING_TOOLS;
 
 module.exports = DrawingCanvas;

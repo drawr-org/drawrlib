@@ -18,9 +18,13 @@ if (argv.examples) {
     compiler.watch({ // watch options:
         aggregateTimeout: 300, // wait so long for more changes
         poll: true // use polling instead of native watchers
-    }, (err) => {
+    }, (err, stats) => {
         if (err) {
             throw err;
+        }
+        if (stats.hasErrors()) {
+            console.log('webpack threw errors compiling!');
+            console.log(stats.toJson('errors-only'));
         }
     });
     files.push(
@@ -98,7 +102,7 @@ module.exports = function(config) {
 
         // start these browsers
         // available browser launchers: https://npmjs.org/browse/keyword/karma-launcher
-        browsers: ['Chrome'],
+        browsers: [],
 
 
         // Continuous Integration mode

@@ -159,6 +159,10 @@ ServerConnection.prototype.newSession = function(name, callback) {
     );
 };
 
+ServerConnection.prototype.getSessionId = function() {
+    return this._session.id;
+};
+
 ServerConnection.prototype.sendCanvasUpdate = function(clicks) {
     this._wsClient.send(
         JSON.stringify({

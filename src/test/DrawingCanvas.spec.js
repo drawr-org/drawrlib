@@ -76,6 +76,13 @@ describe.only('DrawingCanvas', function() {
         canvas._eventEmitter.emit('test');
     });
 
+    it('should change color to white with eraser', function() {
+        canvas.updateOptions({
+            type: DrawingCanvas.drawingTools.ERASER
+        });
+        expect(canvas._stylingOptions.colour).to.be.equal('#FFFFFF');
+    });
+
     it('should clear canvas', function() {
         canvas._addClick(100, 100, false);
         canvas.clearCanvas();
