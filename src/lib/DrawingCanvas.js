@@ -1,6 +1,10 @@
 'use strict';
 
 let EventEmitter = require('eventemitter3');
+let mouseX;
+let mouseY;
+let oldmouseX = 0;
+let oldmouseY = 0;
 
 const DRAWING_TOOLS = {
     PEN: 'pen',
@@ -42,9 +46,9 @@ function mousemoveListener(e) {
     let drawingAreaY = this._height;
     let drawingAreaWidth = 10;
 
-    let mouseX = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) -
+    mouseX = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) -
         this._canvas.offsetLeft;
-    let mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) -
+    mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) -
         this._canvas.offsetTop;
     if (mouseX < drawingAreaX && mouseY < drawingAreaY) {
         if (mouseX > drawingAreaWidth && mouseY > 0) {
@@ -151,8 +155,8 @@ let DrawingCanvas = function(divId, options) {
  */
 DrawingCanvas.prototype._addClick = function(x, y, dragging) {
     this._clicks.push({
-        x: x/this._scaleX,
-        y: y/this._scaleY,
+        x: x/this._scaleX - oldmouseX,
+        y: y/this._scaleY - oldmouseY,
         drag: dragging,
         style: Object.assign({}, this._stylingOptions),
         remote: false
@@ -247,8 +251,11 @@ DrawingCanvas.prototype.clearCanvas = function(removeClicks = true) {
     );
     // save it again for transformations
     this._context.save();
-    let xTranslation = (this._width/this._scaleX) / (this._zoom);
-    let yTranslation = (this._height/this._scaleY) / (this._zoom);
+    let xTranslation = mouseX;
+    let yTranslation = mouseY;
+    oldmouseX = mouseX;
+    oldmouseY = mouseY;
+
     this._context.translate(xTranslation, yTranslation);
     this._context.scale(this._scaleX, this._scaleY);
     this._context.translate(-xTranslation, -yTranslation);
