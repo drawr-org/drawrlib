@@ -143,6 +143,7 @@ let DrawingCanvas = function(divId, options) {
     this._scaleY = 1;
     this._lastDraw = 0;
     this._clickStarts = [];
+    this._redoClicks = [];
 };
 
 /**
@@ -343,11 +344,20 @@ DrawingCanvas.prototype.addEventListener = function(name, listener, context) {
 DrawingCanvas.prototype.undoLastClick = function() {
     let initialIndex = this._clickStarts.pop();
     if (initialIndex) {
-        this._clicks.splice(
+        this._redoClicks.unshift(this._clicks.splice(
             initialIndex, this._clicks.length - initialIndex
-        );
+        ));
         this._redraw(true);
     }
+};
+
+/**
+ * redo last click
+ * @returns {void}
+ */
+DrawingCanvas.prototype.redoLastClick = function() {
+    this._clicks = this._clicks.concat(this._redoClicks.pop());
+    this._redraw(true);
 };
 
 /**

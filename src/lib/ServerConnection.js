@@ -159,6 +159,10 @@ ServerConnection.prototype.newSession = function(name, callback) {
     );
 };
 
+/**
+ * get session ID from connected session
+ * @returns {Number} sessionId
+ */
 ServerConnection.prototype.getSessionId = function() {
     return this._session.id;
 };

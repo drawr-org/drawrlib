@@ -28,8 +28,8 @@ if (argv.examples) {
         }
     });
     files.push(
-        {pattern: 'examples/**/*', watched: false, included: false},
-        {pattern: 'dist/*', watched: false, included: false, nocache: true}
+        {pattern: 'examples/**/*', watched: true, included: false},
+        {pattern: 'dist/*', watched: true, included: false, nocache: true}
     );
 } else if (argv.test) {
     files.push(UNIT_TESTS);
