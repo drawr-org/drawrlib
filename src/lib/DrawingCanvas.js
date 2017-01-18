@@ -312,7 +312,9 @@ DrawingCanvas.prototype.updateOptions = function(options) {
  */
 DrawingCanvas.prototype.setZoom = function(zoom) {
     if (isNaN(zoom) || zoom < 0) {
-        throw new Error('zoom must be an integer equal or bigger than zero');
+        throw new TypeError(
+            'zoom must be an integer equal or bigger than zero'
+        );
     }
     this._zoom = zoom;
     this._scaleX = 1 - this._zoom*0.1;
@@ -329,10 +331,10 @@ DrawingCanvas.prototype.setZoom = function(zoom) {
  */
 DrawingCanvas.prototype.addEventListener = function(name, listener, context) {
     if (typeof name !== 'string') {
-        throw new Error('event name must be a string');
+        throw new TypeError('event name must be a string');
     }
     if (typeof listener !== 'function') {
-        throw new Error('listener must be a function');
+        throw new TypeError('listener must be a function');
     }
     this._eventEmitter.on(name, listener, context);
 };

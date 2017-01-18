@@ -2,24 +2,28 @@
 /* global Drawr */
 
 let server;
-try {
-    server = new Drawr.ServerConnection({
-        name: 'pedro',
-        id: '0'
-    }, 'ws://etsag.de:8880/ws');
-} catch (e) {
-    console.log(e);
-}
+server = new Drawr.ServerConnection({
+    name: 'pedro',
+}, {
+    host: 'etsag.de',
+    port: '8881'
+});
 
-let canvas = new Drawr.DrawingCanvas('canvasDiv');
 server.addEventListener('update-canvas', function(data) {
     if (server._user.name !== data.username) {
         canvas.remoteUpdate(JSON.parse(data.canvasState));
     }
-}, canvas);
+});
 
+let canvas = new Drawr.DrawingCanvas('canvasDiv');
 canvas.addEventListener('new-click', function(clicks) {
     server.sendCanvasUpdate(clicks);
+});
+
+server.newSession().then(success => {
+    console.log(success);
+}).catch(err => {
+    console.log(err);
 });
 
 // setTimeout(() => {

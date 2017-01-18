@@ -1,7 +1,15 @@
 'use strict';
 
-// let W3CWebSocket = require('websocket').w3cwebsocket;
+/* msg schema
+    Message {
+        status,
+        type,
+        data
+    }
+*/
+
 let EventEmitter = require('eventemitter3');
+let xhr = require('xhr');
 
 /**
  * error handling if websocket fails to connect
@@ -18,10 +26,7 @@ function onWebSocketError() {
  * @returns {void}
  */
 function onWebSocketOpen() {
-    console.log('connected to server');
-    if (this._wsClient.readyState === this._wsClient.OPEN) {
-        this._eventEmitter.emit('connected');
-    }
+    console.log('connected to websocket server');
 }
 
 /**
@@ -32,17 +37,22 @@ function onWebSocketOpen() {
  */
 function onWebSocketMessage(event) {
     let msg = JSON.parse(event.data);
-    if (msg.type === 'ack-session') {
-        if (msg.status === 'new-session-success') {
-            this._initSession(msg.data);
-        } else if (msg.status === 'join-session-success') {
-            this._initSession(msg.data);
-        }
-    } else if (msg.type === 'newPeer') {
-        this._eventEmitter.emit('newPeer', msg);
+    if (msg.type === 'new-user') {
+        this._eventEmitter.emit('new-user', msg.data);
     } else if (msg.type === 'update-canvas') {
         this._eventEmitter.emit('update-canvas', msg.data);
     }
+}
+
+/**
+ * util function to generate url
+ * @param {String} protocol - http or ws
+ * @param {String} endPoint - which endpoint to request
+ * @returns {String} url - concatenated url
+ */
+function makeUrl(protocol, endPoint) {
+    return `${protocol}://${this._options.host}:${
+        this._options.port}${endPoint}`;
 }
 
 /**
@@ -51,20 +61,16 @@ function onWebSocketMessage(event) {
  */
 
 /**
- * creates a new server connection
+ * creates a new server connection instance
  * @constructor
  * @param {User} user - user to connect to server
- * @param {String} serverUrl - websocket server url
+ * @param {Object} options - websocket/http server host and port
  */
-let ServerConnection = function(user, serverUrl) {
+let ServerConnection = function(user, options) {
     this._user = user;
+    this._options = options;
     this._eventEmitter = new EventEmitter();
-    // this._wsClient = new W3CWebSocket();
-    // this._wsClient.connect('ws://rmbp.lan:8080/ws');
-    this._wsClient = new WebSocket(serverUrl);
-    this._wsClient.onopen = onWebSocketOpen.bind(this);
-    this._wsClient.onmessage = onWebSocketMessage.bind(this);
-    this._wsClient.onerror = onWebSocketError.bind(this);
+    this._wsClient = null;
     this._session = {};
 };
 
@@ -79,15 +85,23 @@ let ServerConnection = function(user, serverUrl) {
 /**
  * set session data
  * @private
- * @param {SessionData} sessionData - object with session information
- * @returns {void}
+ * @returns {Promise} p - successfull if websocket connects
  */
-ServerConnection.prototype._initSession = function(sessionData) {
-    this._session.id = sessionData.sessionId;
-    // this._session.users = sessionData.users;
-    if (this._session.clientCallback) {
-        this._session.clientCallback(sessionData);
-    }
+ServerConnection.prototype._connectToSession = function() {
+    let p = new Promise((resolve, reject) => {
+        try {
+            this._wsClient = new WebSocket(makeUrl.call(
+                this, 'ws', `/session/${this._session.id}/ws`
+            ));
+            this._wsClient.onopen = onWebSocketOpen.bind(this);
+            this._wsClient.onmessage = onWebSocketMessage.bind(this);
+            this._wsClient.onerror = onWebSocketError.bind(this);
+            resolve();
+        } catch(e) {
+            reject(e);
+        }
+    });
+    return p;
 };
 
 /* Public API */
@@ -101,10 +115,10 @@ ServerConnection.prototype._initSession = function(sessionData) {
  */
 ServerConnection.prototype.addEventListener = function(name, listener, context) {
     if (typeof name !== 'string') {
-        throw new Error('event name must be a string');
+        throw new TypeError('event name must be a string');
     }
     if (typeof listener !== 'function') {
-        throw new Error('listener must be a function');
+        throw new TypeError('listener must be a function');
     }
     this._eventEmitter.on(name, listener, context);
 };
@@ -112,72 +126,86 @@ ServerConnection.prototype.addEventListener = function(name, listener, context) 
 /**
  * join an existing session via session id
  * @param {String} sessionId - id of the session to join
- * @param {Function} callback - called after server returns answer
- * @returns {void}
+ * @returns {Promise} p - resolve/rejects after http request result
  */
-ServerConnection.prototype.joinSession = function(sessionId, callback) {
-    if (callback) {
-        if (typeof callback !== 'function') {
-            throw new Error('callback must be a function');
-        } else {
-            this._session.clientCallback = callback;
-        }
-    }
-    this._wsClient.send(
-        JSON.stringify({
-            type: 'join-session',
-            data: {
-                username: this.user.name,
-                sessionId: sessionId
+ServerConnection.prototype.joinSession = function(sessionId) {
+    let options = {
+        url: makeUrl.call(this, 'http', `/session/${sessionId}`)
+    };
+    let p = new Promise((resolve, reject) => {
+        xhr(options, (err, response, body) => {
+            if (err) {
+                reject(response);
             }
-        })
-    );
+            this._connectToSession(body)
+                .then(resolve)
+                .catch(reject);
+        });
+    });
+    return p;
 };
 
 /**
  * creates a new session with given name
  * @param {String} name - session name
- * @param {Function} callback - called after server returns answer
- * @returns {void}
+ * @returns {Promise} p - resolve/rejects after http request result
  */
-ServerConnection.prototype.newSession = function(name, callback) {
-    if (callback) {
-        if (typeof callback !== 'function') {
-            throw new Error('callback must be a function');
-        } else {
-            this._session.clientCallback = callback;
-        }
-    }
-    this._wsClient.send(
-        JSON.stringify({
-            type: 'new-session',
-            data: {
-                username: this._user.name,
-                sessionName: name
+ServerConnection.prototype.newSession = function(name = '') {
+    let options = {
+        url: makeUrl.call(this, 'http', `/session/new?name=${name}`)
+    };
+    let p = new Promise((resolve, reject) => {
+        xhr(options, (err, response, body) => {
+            if (err) {
+                reject(response);
             }
-        })
-    );
+            if (response.statusCode === 200) {
+                this._session = JSON.parse(body);
+                this._connectToSession()
+                    .then(resolve)
+                    .catch(reject);
+            } else {
+                reject(response);
+            }
+        });
+    });
+    return p;
 };
 
 /**
  * get session ID from connected session
- * @returns {Number} sessionId
+ * @returns {String} sessionId
  */
 ServerConnection.prototype.getSessionId = function() {
     return this._session.id;
 };
 
+/**
+ * get connected users from session
+ * @returns {String} sessionId
+ */
+ServerConnection.prototype.getUsersList = function() {
+    return this._session.users;
+};
+
+/**
+ * send canvas click updates to websocket connection
+ * @param {Array} clicks - new clicks to send
+ * @returns {void}
+ */
 ServerConnection.prototype.sendCanvasUpdate = function(clicks) {
-    this._wsClient.send(
-        JSON.stringify({
-            type: 'update-canvas',
-            data: {
-                username: this._user.name,
-                sessionId: '',
-                canvasState: JSON.stringify(clicks)
-            }
-        })
-    );
+    if (this._wsClient.readyState === this._wsClient.readyState.OPEN) {
+        this._wsClient.send(
+            JSON.stringify({
+                type: 'update-canvas',
+                data: {
+                    username: this._user.name,
+                    sessionId: '',
+                    canvasState: JSON.stringify(clicks)
+                }
+            })
+        );
+    }
 };
 
 module.exports = ServerConnection;

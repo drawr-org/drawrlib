@@ -1,4 +1,4 @@
-describe.only('DrawingCanvas', function() {
+describe('DrawingCanvas', function() {
     let Drawr = require('./../index.js');
     let DrawingCanvas = Drawr.DrawingCanvas;
     let canvas;

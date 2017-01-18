@@ -62,6 +62,7 @@
   },
   "dependencies": {
     "eventemitter3": "^2.0.2",
-    "websocket": "^1.0.23"
+    "websocket": "^1.0.23",
+    "xhr": "^2.3.3"
   }
 }
