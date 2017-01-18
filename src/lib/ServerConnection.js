@@ -168,7 +168,7 @@ ServerConnection.prototype.newSession = function(name = '') {
             if (response.statusCode === 200) {
                 this._session = JSON.parse(body);
                 this._connectToSession()
-                    .then(resolve)
+                    .then(resolve(this.getSessionId()))
                     .catch(reject);
             } else {
                 reject(response);
