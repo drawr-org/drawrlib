@@ -46,6 +46,7 @@ function onWebSocketMessage(event) {
 
 /**
  * util function to generate url
+ * @private
  * @param {String} protocol - http or ws
  * @param {String} endPoint - which endpoint to request
  * @returns {String} url - concatenated url
@@ -137,9 +138,14 @@ ServerConnection.prototype.joinSession = function(sessionId) {
             if (err) {
                 reject(response);
             }
-            this._connectToSession(body)
-                .then(resolve)
-                .catch(reject);
+            if (response.statusCode === 200) {
+                this._session = JSON.parse(body);
+                this._connectToSession()
+                    .then(resolve)
+                    .catch(reject);
+            } else {
+                reject(response);
+            }
         });
     });
     return p;
@@ -194,7 +200,7 @@ ServerConnection.prototype.getUsersList = function() {
  * @returns {void}
  */
 ServerConnection.prototype.sendCanvasUpdate = function(clicks) {
-    if (this._wsClient.readyState === this._wsClient.readyState.OPEN) {
+    if (this._wsClient.readyState === this._wsClient.OPEN) {
         this._wsClient.send(
             JSON.stringify({
                 type: 'update-canvas',

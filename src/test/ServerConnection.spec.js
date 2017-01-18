@@ -13,10 +13,14 @@ describe.only('ServerConnection', function() {
     });
 
     it('should create new session', function(done) {
-        client.newSession('test session').then(data => {
-            expect(data.sessionId).to.be.an.instanceOf(String);
+        client.newSession('test session').then(() => {
             done();
         });
+    });
+
+    it('should return session id', function() {
+        let id = client.getSessionId();
+        expect(id).to.be.an.instanceOf(String);
     });
 
     it('should join session', function(done) {
