@@ -1,4 +1,4 @@
-describe.only('ServerConnection', function() {
+describe('ServerConnection', function() {
     let Drawr = require('./../index.js');
     let client;
 
@@ -20,7 +20,7 @@ describe.only('ServerConnection', function() {
 
     it('should return session id', function() {
         let id = client.getSessionId();
-        expect(id).to.be.an.instanceOf(String);
+        expect(id).to.be.a('string');
     });
 
     it('should join session', function(done) {
