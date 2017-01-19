@@ -10,12 +10,16 @@ This guide should give a developer all information to start contributing to the 
 
 * all latest features from [es6](https://html5hive.org/es6-and-babel-tutorial/) are allowed to use, and we compile our library with [BabelJS](https://babeljs.io/)
 
-### WebRTC
+### Server Communication
 
-* using [adapter.js](https://www.npmjs.com/package/webrtc-adapter) latest release `v2.0.6`
-* [MDN explanation](https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/adapter.js) for why using `adapter.js`
+* we use [xhr](https://www.npmjs.com/package/xhr) library to make our http requests
+* we are using the default implementation of [WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket)
 
 ## Package npm scripts
 
-* `npm start` - starts karma server for tests
-* `npm run export` - exports library to `dist/drawr-core.js` and `dist/drawr-core.min.js`
+* `npm start`
+    * `--examples` - starts examples server on `/example/**/index.html`
+    * `--test` - starts unit tests server
+* `npm run export` - exports library to `dist/drawr.js` and `dist/drawr.min.js`
+* `npm run commit-test` - check code style and syntax, runs unit tests and builds library
+* `npm test` - runs unit tests

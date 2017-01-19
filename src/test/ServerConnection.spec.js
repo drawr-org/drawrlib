@@ -1,4 +1,4 @@
-describe('ServerConnection', function() {
+describe.skip('ServerConnection', function() {
     let Drawr = require('./../index.js');
     let client;
 

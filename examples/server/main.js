@@ -20,7 +20,7 @@ canvas.addEventListener('new-click', function(clicks) {
     server.sendCanvasUpdate(clicks);
 });
 
-server.joinSession('01B6RYQTBTZ9MB5F7WAQF3N3JM').then(success => {
+server.newSession('fun session').then(success => {
     console.log(success);
 }).catch(err => {
     console.log(err);

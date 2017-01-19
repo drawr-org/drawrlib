@@ -215,7 +215,7 @@ DrawingCanvas.prototype._redraw = function(hard = false) {
         this._context.lineWidth = this._clicks[i].style.colour;
         this._context.stroke();
     }
-    this._lastDraw = this._clicks.length - 1;
+    this._lastDraw = this._clicks.length > 0 ? this._clicks.length - 1 : 0;
 };
 
 DrawingCanvas.prototype._wrapAndEmitClicks = function () {
@@ -344,12 +344,14 @@ DrawingCanvas.prototype.addEventListener = function(name, listener, context) {
  * @returns {void}
  */
 DrawingCanvas.prototype.undoLastClick = function() {
-    let initialIndex = this._clickStarts.pop();
-    if (initialIndex) {
-        this._redoClicks.unshift(this._clicks.splice(
-            initialIndex, this._clicks.length - initialIndex
-        ));
-        this._redraw(true);
+    if (this._clickStarts.length > 0) {
+        let initialIndex = this._clickStarts.pop();
+        if (initialIndex) {
+            this._redoClicks.push(this._clicks.splice(
+                initialIndex, this._clicks.length - initialIndex
+            ));
+            this._redraw(true);
+        }
     }
 };
 
@@ -358,8 +360,18 @@ DrawingCanvas.prototype.undoLastClick = function() {
  * @returns {void}
  */
 DrawingCanvas.prototype.redoLastClick = function() {
-    this._clicks = this._clicks.concat(this._redoClicks.pop());
-    this._redraw(true);
+    if (this._redoClicks.length > 0) {
+        this._clicks = this._clicks.concat(this._redoClicks.pop());
+        this._redraw(true);
+    }
+};
+
+/**
+ * gets all clicks drawn on canvas
+ * @return {Array} clicks - all clicks on canvas instance
+ */
+DrawingCanvas.prototype.getAllClicks = function() {
+    return this._clicks.slice();
 };
 
 /**
