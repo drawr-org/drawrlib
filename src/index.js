@@ -1,4 +1,7 @@
+import DrawrCanvas from './lib/DrawrCanvas';
+import DrawrClient from './lib/DrawrClient';
+
 module.exports = {
-    DrawingCanvas: require('./lib/DrawingCanvas.js'),
-    ServerConnection: require('./lib/ServerConnection.js')
+    DrawrCanvas: DrawrCanvas,
+    DrawrClient: DrawrClient
 };

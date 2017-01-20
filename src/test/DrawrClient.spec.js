@@ -1,15 +1,16 @@
-describe.skip('ServerConnection', function() {
-    let Drawr = require('./../index.js');
+import {DrawrClient} from './../index.js';
+
+describe.skip('DrawrClient', function() {
     let client;
 
     it('should create server instance', function() {
-        client = new Drawr.ServerConnection({
+        client = new DrawrClient({
             name: 'pedro',
         }, {
             host: 'etsag.de',
             port: '8881'
         });
-        expect(client).to.be.an.instanceOf(Drawr.ServerConnection);
+        expect(client).to.be.an.instanceOf(DrawrClient);
     });
 
     it('should create new session', function(done) {
@@ -29,7 +30,7 @@ describe.skip('ServerConnection', function() {
             console.log('couldn\'t join because creation failed');
             done();
         }
-        let client2 = new Drawr.ServerConnection({
+        let client2 = new DrawrClient({
             name: 'lukas',
         }, {
             host: 'etsag.de',

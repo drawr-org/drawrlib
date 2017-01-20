@@ -6,16 +6,19 @@ let filename;
 let plugins = [];
 if (argv.minified) {
     plugins.push(new webpack.optimize.UglifyJsPlugin({minimize: true}));
-    filename = 'drawr.min.js';
+    filename = '[name].min.js';
 } else {
-    filename = 'drawr.js';
+    filename = '[name].js';
 }
 
 module.exports = {
-    entry: './src/index.js',
+    entry: {
+        DrawrCanvas: './src/lib/DrawrCanvas.js',
+        DrawrClient: './src/lib/DrawrClient.js'
+    },
     output: {
         filename: `dist/${filename}`,
-        library: 'Drawr'
+        library: '[name]'
     },
     module: {
         loaders: [

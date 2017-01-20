@@ -1,6 +1,6 @@
-describe('DrawingCanvas', function() {
-    let Drawr = require('./../index.js');
-    let DrawingCanvas = Drawr.DrawingCanvas;
+import {DrawrCanvas} from '../index.js';
+
+describe('DrawrCanvas', function() {
     let canvas;
 
     beforeEach(function() {
@@ -8,11 +8,11 @@ describe('DrawingCanvas', function() {
         let div = document.createElement('div');
         div.setAttribute('id', 'myCanvasId');
         body.appendChild(div);
-        canvas = new DrawingCanvas('myCanvasId');
+        canvas = new DrawrCanvas('myCanvasId');
     });
 
     it('should create new canvas', function() {
-        expect(canvas).to.be.an.instanceOf(DrawingCanvas);
+        expect(canvas).to.be.an.instanceOf(DrawrCanvas);
     });
 
     it('should update width', function() {
@@ -78,7 +78,7 @@ describe('DrawingCanvas', function() {
 
     it('should change color to white with eraser', function() {
         canvas.updateOptions({
-            type: DrawingCanvas.drawingTools.ERASER
+            type: DrawrCanvas.drawingTools.ERASER
         });
         expect(canvas._stylingOptions.colour).to.be.equal('#FFFFFF');
     });

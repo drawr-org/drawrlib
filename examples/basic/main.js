@@ -1,7 +1,7 @@
 'use strict';
-/* global Drawr */
+/* global DrawrCanvas */
 
-let myCanvas = new Drawr.DrawingCanvas('canvasDiv');
+let myCanvas = new DrawrCanvas.default('canvasDiv');
 setTimeout(() => {
     myCanvas.setZoom(5);
     myCanvas.updateOptions({colour: '#0c386b'});

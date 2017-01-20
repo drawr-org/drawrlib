@@ -1,26 +1,27 @@
 'use strict';
-/* global Drawr */
+/* global DrawrClient */
+/* global DrawrCanvas */
 
-let server;
-server = new Drawr.ServerConnection({
+let client;
+client = new DrawrClient.default({
     name: 'competitive lumberjack',
 }, {
     host: 'etsag.de',
     port: '8881'
 });
 
-server.addEventListener('update-canvas', function(data) {
-    if (server._user.name !== data.username) {
+client.addEventListener('update-canvas', function(data) {
+    if (client._user.name !== data.username) {
         canvas.remoteUpdate(JSON.parse(data.canvasState));
     }
 });
 
-let canvas = new Drawr.DrawingCanvas('canvasDiv');
+let canvas = new DrawrCanvas.default('canvasDiv');
 canvas.addEventListener('new-click', function(clicks) {
-    server.sendCanvasUpdate(clicks);
+    client.sendCanvasUpdate(clicks);
 });
 
-server.newSession('fun session').then(success => {
+client.newSession('fun session').then(success => {
     console.log(success);
 }).catch(err => {
     console.log(err);

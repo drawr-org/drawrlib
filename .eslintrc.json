@@ -5,6 +5,10 @@
         "es6": true,
         "jasmine": true
     },
+    "parserOptions": {
+        "ecmaVersion": 6,
+        "sourceType": "module"
+    },
     "extends": "eslint:recommended",
     "rules": {
         "valid-jsdoc": "error",

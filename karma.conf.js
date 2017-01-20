@@ -6,7 +6,7 @@
 const path = require('path');
 const argv = require('minimist')(process.argv.slice(2));
 const UNIT_TESTS = 'src/test/*spec.js';
-const SOURCE_FILES = 'src/lib/*.js';
+// const SOURCE_FILES = 'src/lib/*.js';
 
 let files = [];
 let preprocessors = {};
@@ -34,7 +34,11 @@ if (argv.examples) {
 } else if (argv.test) {
     files.push(UNIT_TESTS);
     preprocessors[UNIT_TESTS] = ['webpack'];
-    preprocessors[SOURCE_FILES] = ['coverage'];
+    /**
+     * instambul is not working properly since change to es6 modules
+     * @see https://github.com/karma-runner/karma-coverage/issues/157
+     */
+    // preprocessors[SOURCE_FILES] = ['coverage'];
 } else {
     console.log('please use --examples or --test option!');
     process.exit(1);
@@ -72,10 +76,19 @@ module.exports = function(config) {
             module: {
                 preLoaders: [
                     // instrument only testing sources with Istanbul
+                    // {
+                    //     test: /\.js$/,
+                    //     include: path.resolve('src/lib/'),
+                    //     loader: 'istanbul-instrumenter'
+                    // },
                     {
                         test: /\.js$/,
-                        include: path.resolve('src/lib/'),
-                        loader: 'istanbul-instrumenter'
+                        loader: 'babel-loader',
+                        include: [
+                            path.resolve('src/lib/'),
+                            path.resolve('src/test/'),
+                            path.resolve('src/index.js')
+                        ]
                     }
                 ]
             }
