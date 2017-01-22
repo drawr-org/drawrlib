@@ -13,7 +13,7 @@
     "export": "webpack && webpack --minified",
     "test": "karma start --singleRun --test --browsers=Chrome",
     "commit-test": "./commit-test.sh",
-    "doc": "jsdoc -c jsdoc.conf.json -t ./node_modules/ink-docstrap/template -R README.md -r ./src/lib/",
+    "doc": "esdoc",
     "lint": "eslint src/** --ignore-pattern src/style.css"
   },
   "repository": {
@@ -46,11 +46,11 @@
     "babel-preset-es2015": "^6.22.0",
     "babel-preset-es2016": "^6.22.0",
     "chai": "^3.5.0",
+    "esdoc": "^0.5.2",
     "eslint": "^3.11.1",
     "ink-docstrap": "^1.3.0",
     "istanbul-instrumenter-loader": "^1.0.0",
     "jasmine-core": "^2.5.2",
-    "jsdoc": "^3.4.3",
     "karma": "^1.3.0",
     "karma-chai": "^0.1.0",
     "karma-chrome-launcher": "^2.0.0",

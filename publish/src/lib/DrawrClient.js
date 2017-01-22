@@ -70,6 +70,10 @@ function makeUrl(protocol, endPoint) {
     return protocol + '://' + this._options.host + ':' + this._options.port + endPoint;
 }
 
+/**
+ * Class to comunicate with the drawr backend
+ */
+
 var DrawrClient = function () {
     /**
     * @typedef {Object} User
@@ -78,7 +82,6 @@ var DrawrClient = function () {
 
     /**
     * creates a new server connection instance
-    * @constructor
     * @param {User} user - user to connect to server
     * @param {Object} options - websocket/http server host and port
     */

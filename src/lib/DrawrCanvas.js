@@ -107,14 +107,16 @@ function setEventListeners() {
     );
 }
 
+/**
+ * Class to do rendering and get user inputs from drawr drawing solution
+ */
 export default class DrawrCanvas {
     /**
-    * creates a new canvas
-    * @constructor
-    * @param {String} divId - div where canvas should be created
-    * @param {Object} options - styling options for the canvas
-    * @returns {void}
-    */
+     * creates a new canvas
+     * @param {String} divId - div where canvas should be created
+     * @param {Object} options - styling options for the canvas
+     * @returns {void}
+     */
     constructor(divId, options) {
         this._stylingOptions = Object.assign({}, STANDARD_OPTIONS, options);
         this._canvasDiv = document.getElementById(divId);
@@ -144,13 +146,13 @@ export default class DrawrCanvas {
     }
 
     /**
-    * add and draw changes to canvas
-    * @private
-    * @param {Number} x - x coordinate
-    * @param {Number} y - y coordinate
-    * @param {Boolean} dragging - if point should be connected to last one
-    * @returns {void}
-    */
+     * add and draw changes to canvas
+     * @private
+     * @param {Number} x - x coordinate
+     * @param {Number} y - y coordinate
+     * @param {Boolean} dragging - if point should be connected to last one
+     * @returns {void}
+     */
     _addClick(x, y, dragging) {
         this._clicks.push({
             x: x/this._scaleX,
@@ -163,11 +165,11 @@ export default class DrawrCanvas {
     }
 
     /**
-    * get index of last click made by local user
-    * @private
-    * @param {Number} index - index from where to start looking
-    * @return {Number} index - last local index from given click
-    */
+     * get index of last click made by local user
+     * @private
+     * @param {Number} index - index from where to start looking
+     * @return {Number} index - last local index from given click
+     */
     _getLastLocalClick(index) {
         for (let i = index; i >= 0; i--) {
             if (!this._clicks[i].remote) {
@@ -177,11 +179,11 @@ export default class DrawrCanvas {
     }
 
     /**
-    * add clicks coming from server
-    * @private
-    * @param {Boolean} hard - if true, clears and rescale canvas, and redraws all clicks
-    * @returns {void}
-    */
+     * add clicks coming from server
+     * @private
+     * @param {Boolean} hard - if true, clears and rescale canvas, and redraws all clicks
+     * @returns {void}
+     */
     _redraw(hard = false) {
         this._context.lineJoin = 'round';
         if (hard) {
@@ -237,9 +239,9 @@ export default class DrawrCanvas {
     }
 
     /**
-    * clear all clicks from canvas
-    * @returns {void}
-    */
+     * clear all clicks from canvas
+     * @returns {void}
+     */
     _clearCanvas() {
         // restore original context to clear full canvas
         this._context.restore();
@@ -255,6 +257,10 @@ export default class DrawrCanvas {
 
     /* PUBLIC API */
 
+    /**
+     * resets to initial started
+     * @return {void}
+     */
     reset() {
         this._clicks = [];
         this._zoom = 0;
@@ -264,12 +270,12 @@ export default class DrawrCanvas {
     }
 
     /**
-    * add image to canvas at given coordinates
-    * @param {Object} img - image to be draw
-    * @param {Number} x - x coordinate
-    * @param {Number} y - y coordinate
-    * @returns {void}
-    */
+     * add image to canvas at given coordinates
+     * @param {Object} img - image to be draw
+     * @param {Number} x - x coordinate
+     * @param {Number} y - y coordinate
+     * @returns {void}
+     */
     addImage(img, x, y) {
         this._context.drawImage(
             img, 0, 0, 100, 100, x, y, this._scaleX, this._scaleY
@@ -277,10 +283,10 @@ export default class DrawrCanvas {
     }
 
     /**
-    * add clicks coming from server
-    * @param {Object} clicks - clicks coming from server
-    * @returns {void}
-    */
+     * add clicks coming from server
+     * @param {Object} clicks - clicks coming from server
+     * @returns {void}
+     */
     remoteUpdate(clicks) {
         this._clickStarts.push(this._lastDraw + 1);
         this._clicks = this._clicks.concat(clicks);
@@ -288,10 +294,10 @@ export default class DrawrCanvas {
     }
 
     /**
-    * updates styling options
-    * @param {Object} options - new option to be set
-    * @returns {void}
-    */
+     * updates styling options
+     * @param {Object} options - new option to be set
+     * @returns {void}
+     */
     updateOptions(options) {
         if (options.type === DRAWING_TOOLS.ERASER) {
             options.colour = '#FFFFFF';
@@ -300,10 +306,10 @@ export default class DrawrCanvas {
     }
 
     /**
-    * set new zoom level and calls redraw
-    * @param {Number} zoom - new zoom level
-    * @returns {void}
-    */
+     * set new zoom level and calls redraw
+     * @param {Number} zoom - new zoom level
+     * @returns {void}
+     */
     setZoom(zoom) {
         if (isNaN(zoom) || zoom < 0) {
             throw new TypeError(
@@ -317,12 +323,12 @@ export default class DrawrCanvas {
     }
 
     /**
-    * add listener to canvas event
-    * @param {String} name - event name
-    * @param {Function} listener - function to be executed on event
-    * @param {Context} context - context (this value) to execute listener
-    * @returns {void}
-    */
+     * add listener to canvas event
+     * @param {String} name - event name
+     * @param {Function} listener - function to be executed on event
+     * @param {Context} context - context (this value) to execute listener
+     * @returns {void}
+     */
     addEventListener(name, listener, context) {
         if (typeof name !== 'string') {
             throw new TypeError('event name must be a string');
@@ -334,9 +340,9 @@ export default class DrawrCanvas {
     }
 
     /**
-    * undo last click
-    * @returns {void}
-    */
+     * undo last click
+     * @returns {void}
+     */
     undoLastClick() {
         if (this._clickStarts.length > 0) {
             let initialIndex = this._clickStarts.pop();
@@ -350,9 +356,9 @@ export default class DrawrCanvas {
     }
 
     /**
-    * redo last click
-    * @returns {void}
-    */
+     * redo last click
+     * @returns {void}
+     */
     redoLastClick() {
         if (this._redoClicks.length > 0) {
             this._clicks = this._clicks.concat(this._redoClicks.pop());
@@ -361,17 +367,17 @@ export default class DrawrCanvas {
     }
 
     /**
-    * gets all clicks drawn on canvas
-    * @return {Array} clicks - all clicks on canvas instance
-    */
+     * gets all clicks drawn on canvas
+     * @return {Array} clicks - all clicks on canvas instance
+     */
     getAllClicks() {
         return this._clicks.slice();
     }
 
     /**
-    * @prop {String} PEN - pen-like drawing
-    * @prop {String} ERASER - eraser
-    */
+     * @prop {String} PEN - pen-like drawing
+     * @prop {String} ERASER - eraser
+     */
     static get drawingTools() {
         return DRAWING_TOOLS;
     }

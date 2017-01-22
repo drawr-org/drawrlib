@@ -14,11 +14,6 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var mouseX = void 0;
-var mouseY = void 0;
-var oldmouseX = 0;
-var oldmouseY = 0;
-
 var DRAWING_TOOLS = {
     PEN: 'pen',
     ERASER: 'eraser'
@@ -59,8 +54,8 @@ function mousemoveListener(e) {
     var drawingAreaY = this._height;
     var drawingAreaWidth = 10;
 
-    mouseX = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) - this._canvas.offsetLeft;
-    mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) - this._canvas.offsetTop;
+    var mouseX = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) - this._canvas.offsetLeft;
+    var mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) - this._canvas.offsetTop;
     if (mouseX < drawingAreaX && mouseY < drawingAreaY) {
         if (mouseX > drawingAreaWidth && mouseY > 0) {
             if (this._paint) {
@@ -110,14 +105,17 @@ function setEventListeners() {
     this._canvas.addEventListener('touchend', mouseupListener.bind(this), false);
 }
 
+/**
+ * Class to do rendering and get user inputs from drawr drawing solution
+ */
+
 var DrawrCanvas = function () {
     /**
-    * creates a new canvas
-    * @constructor
-    * @param {String} divId - div where canvas should be created
-    * @param {Object} options - styling options for the canvas
-    * @returns {void}
-    */
+     * creates a new canvas
+     * @param {String} divId - div where canvas should be created
+     * @param {Object} options - styling options for the canvas
+     * @returns {void}
+     */
     function DrawrCanvas(divId, options) {
         var _this = this;
 
@@ -151,21 +149,21 @@ var DrawrCanvas = function () {
     }
 
     /**
-    * add and draw changes to canvas
-    * @private
-    * @param {Number} x - x coordinate
-    * @param {Number} y - y coordinate
-    * @param {Boolean} dragging - if point should be connected to last one
-    * @returns {void}
-    */
+     * add and draw changes to canvas
+     * @private
+     * @param {Number} x - x coordinate
+     * @param {Number} y - y coordinate
+     * @param {Boolean} dragging - if point should be connected to last one
+     * @returns {void}
+     */
 
 
     _createClass(DrawrCanvas, [{
         key: '_addClick',
         value: function _addClick(x, y, dragging) {
             this._clicks.push({
-                x: x / this._scaleX - oldmouseX,
-                y: y / this._scaleY - oldmouseY,
+                x: x / this._scaleX,
+                y: y / this._scaleY,
                 drag: dragging,
                 style: Object.assign({}, this._stylingOptions),
                 remote: false
@@ -174,11 +172,11 @@ var DrawrCanvas = function () {
         }
 
         /**
-        * get index of last click made by local user
-        * @private
-        * @param {Number} index - index from where to start looking
-        * @return {Number} index - last local index from given click
-        */
+         * get index of last click made by local user
+         * @private
+         * @param {Number} index - index from where to start looking
+         * @return {Number} index - last local index from given click
+         */
 
     }, {
         key: '_getLastLocalClick',
@@ -191,11 +189,11 @@ var DrawrCanvas = function () {
         }
 
         /**
-        * add clicks coming from server
-        * @private
-        * @param {Boolean} hard - if true, clears and rescale canvas, and redraws all clicks
-        * @returns {void}
-        */
+         * add clicks coming from server
+         * @private
+         * @param {Boolean} hard - if true, clears and rescale canvas, and redraws all clicks
+         * @returns {void}
+         */
 
     }, {
         key: '_redraw',
@@ -204,7 +202,7 @@ var DrawrCanvas = function () {
 
             this._context.lineJoin = 'round';
             if (hard) {
-                this.clearCanvas(false);
+                this._clearCanvas();
             }
             for (var i = this._lastDraw; i < this._clicks.length; i++) {
                 this._context.beginPath();
@@ -252,45 +250,47 @@ var DrawrCanvas = function () {
         }
 
         /**
-        * clear all clicks from canvas
-        * @param {Boolean} removeClicks - if clear is just for rescaling and redraw, set to false to don't remove made clicks
-        * @returns {void}
-        */
+         * clear all clicks from canvas
+         * @returns {void}
+         */
 
     }, {
-        key: 'clearCanvas',
-        value: function clearCanvas() {
-            var removeClicks = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : true;
-
+        key: '_clearCanvas',
+        value: function _clearCanvas() {
             // restore original context to clear full canvas
             this._context.restore();
             this._context.clearRect(0, 0, this._width, this._height);
             // save it again for transformations
             this._context.save();
-            var xTranslation = mouseX;
-            var yTranslation = mouseY;
-            oldmouseX = mouseX;
-            oldmouseY = mouseY;
 
-            this._context.translate(xTranslation, yTranslation);
             this._context.scale(this._scaleX, this._scaleY);
-            this._context.translate(-xTranslation, -yTranslation);
             this._lastDraw = 0;
-            if (removeClicks) {
-                this._clicks = [];
-                this._zoom = 0;
-                this._scaleX = 1;
-                this._scaleY = 1;
-            }
+        }
+
+        /* PUBLIC API */
+
+        /**
+         * resets to initial started
+         * @return {void}
+         */
+
+    }, {
+        key: 'reset',
+        value: function reset() {
+            this._clicks = [];
+            this._zoom = 0;
+            this._scaleX = 1;
+            this._scaleY = 1;
+            this._clearCanvas();
         }
 
         /**
-        * add image to canvas at given coordinates
-        * @param {Object} img - image to be draw
-        * @param {Number} x - x coordinate
-        * @param {Number} y - y coordinate
-        * @returns {void}
-        */
+         * add image to canvas at given coordinates
+         * @param {Object} img - image to be draw
+         * @param {Number} x - x coordinate
+         * @param {Number} y - y coordinate
+         * @returns {void}
+         */
 
     }, {
         key: 'addImage',
@@ -299,10 +299,10 @@ var DrawrCanvas = function () {
         }
 
         /**
-        * add clicks coming from server
-        * @param {Object} clicks - clicks coming from server
-        * @returns {void}
-        */
+         * add clicks coming from server
+         * @param {Object} clicks - clicks coming from server
+         * @returns {void}
+         */
 
     }, {
         key: 'remoteUpdate',
@@ -313,10 +313,10 @@ var DrawrCanvas = function () {
         }
 
         /**
-        * updates styling options
-        * @param {Object} options - new option to be set
-        * @returns {void}
-        */
+         * updates styling options
+         * @param {Object} options - new option to be set
+         * @returns {void}
+         */
 
     }, {
         key: 'updateOptions',
@@ -328,10 +328,10 @@ var DrawrCanvas = function () {
         }
 
         /**
-        * set new zoom level and calls redraw
-        * @param {Number} zoom - new zoom level
-        * @returns {void}
-        */
+         * set new zoom level and calls redraw
+         * @param {Number} zoom - new zoom level
+         * @returns {void}
+         */
 
     }, {
         key: 'setZoom',
@@ -346,12 +346,12 @@ var DrawrCanvas = function () {
         }
 
         /**
-        * add listener to canvas event
-        * @param {String} name - event name
-        * @param {Function} listener - function to be executed on event
-        * @param {Context} context - context (this value) to execute listener
-        * @returns {void}
-        */
+         * add listener to canvas event
+         * @param {String} name - event name
+         * @param {Function} listener - function to be executed on event
+         * @param {Context} context - context (this value) to execute listener
+         * @returns {void}
+         */
 
     }, {
         key: 'addEventListener',
@@ -366,9 +366,9 @@ var DrawrCanvas = function () {
         }
 
         /**
-        * undo last click
-        * @returns {void}
-        */
+         * undo last click
+         * @returns {void}
+         */
 
     }, {
         key: 'undoLastClick',
@@ -383,9 +383,9 @@ var DrawrCanvas = function () {
         }
 
         /**
-        * redo last click
-        * @returns {void}
-        */
+         * redo last click
+         * @returns {void}
+         */
 
     }, {
         key: 'redoLastClick',
@@ -397,9 +397,9 @@ var DrawrCanvas = function () {
         }
 
         /**
-        * gets all clicks drawn on canvas
-        * @return {Array} clicks - all clicks on canvas instance
-        */
+         * gets all clicks drawn on canvas
+         * @return {Array} clicks - all clicks on canvas instance
+         */
 
     }, {
         key: 'getAllClicks',
@@ -408,9 +408,9 @@ var DrawrCanvas = function () {
         }
 
         /**
-        * @prop {String} PEN - pen-like drawing
-        * @prop {String} ERASER - eraser
-        */
+         * @prop {String} PEN - pen-like drawing
+         * @prop {String} ERASER - eraser
+         */
 
     }], [{
         key: 'drawingTools',

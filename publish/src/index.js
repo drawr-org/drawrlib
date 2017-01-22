@@ -15,11 +15,11 @@ var _DrawrClient2 = _interopRequireDefault(_DrawrClient);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var Drawr = {
+var drawr = {
     DrawrCanvas: _DrawrCanvas2.default,
     DrawrClient: _DrawrClient2.default
 };
 
-exports.default = Drawr;
+exports.default = drawr;
 exports.DrawrCanvas = _DrawrCanvas2.default;
 exports.DrawrClient = _DrawrClient2.default;

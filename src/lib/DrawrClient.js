@@ -56,7 +56,9 @@ function makeUrl(protocol, endPoint) {
         this._options.port}${endPoint}`;
 }
 
-
+/**
+ * Class to comunicate with the drawr backend
+ */
 export default class DrawrClient {
     /**
     * @typedef {Object} User
@@ -65,7 +67,6 @@ export default class DrawrClient {
 
     /**
     * creates a new server connection instance
-    * @constructor
     * @param {User} user - user to connect to server
     * @param {Object} options - websocket/http server host and port
     */
