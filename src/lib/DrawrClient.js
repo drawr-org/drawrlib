@@ -77,6 +77,7 @@ export default class DrawrClient {
         this._options = options;
         this._eventEmitter = new EventEmitter();
         this._wsClient = null;
+        this._pendingUpdates = [];
         this._session = {};
     }
     /* Private methods */
@@ -204,7 +205,10 @@ export default class DrawrClient {
     * @returns {void}
     */
     sendCanvasUpdate(clicks) {
-        if (this._wsClient.readyState === this._wsClient.OPEN) {
+        if (
+            this._wsClient &&
+            this._wsClient.readyState === this._wsClient.OPEN
+        ) {
             if (this._pendingUpdates.length > 0) {
                 let combinedClicks = this._pendingUpdates.pop().concat(clicks);
                 this._wsClient.send(
