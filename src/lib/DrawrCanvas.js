@@ -2,11 +2,6 @@
 
 import EventEmitter from 'eventemitter3';
 
-let mouseX;
-let mouseY;
-let oldmouseX = 0;
-let oldmouseY = 0;
-
 const DRAWING_TOOLS = {
     PEN: 'pen',
     ERASER: 'eraser'
@@ -47,9 +42,9 @@ function mousemoveListener(e) {
     let drawingAreaY = this._height;
     let drawingAreaWidth = 10;
 
-    mouseX = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) -
+    let mouseX = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) -
         this._canvas.offsetLeft;
-    mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) -
+    let mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) -
         this._canvas.offsetTop;
     if (mouseX < drawingAreaX && mouseY < drawingAreaY) {
         if (mouseX > drawingAreaWidth && mouseY > 0) {
@@ -158,8 +153,8 @@ export default class DrawrCanvas {
     */
     _addClick(x, y, dragging) {
         this._clicks.push({
-            x: x/this._scaleX - oldmouseX,
-            y: y/this._scaleY - oldmouseY,
+            x: x/this._scaleX,
+            y: y/this._scaleY,
             drag: dragging,
             style: Object.assign({}, this._stylingOptions),
             remote: false
@@ -190,7 +185,7 @@ export default class DrawrCanvas {
     _redraw(hard = false) {
         this._context.lineJoin = 'round';
         if (hard) {
-            this.clearCanvas(false);
+            this._clearCanvas();
         }
         for (let i = this._lastDraw; i < this._clicks.length; i++) {
             this._context.beginPath();
@@ -243,10 +238,9 @@ export default class DrawrCanvas {
 
     /**
     * clear all clicks from canvas
-    * @param {Boolean} removeClicks - if clear is just for rescaling and redraw, set to false to don't remove made clicks
     * @returns {void}
     */
-    clearCanvas(removeClicks = true) {
+    _clearCanvas() {
         // restore original context to clear full canvas
         this._context.restore();
         this._context.clearRect(
@@ -254,21 +248,19 @@ export default class DrawrCanvas {
         );
         // save it again for transformations
         this._context.save();
-        let xTranslation = mouseX;
-        let yTranslation = mouseY;
-        oldmouseX = mouseX;
-        oldmouseY = mouseY;
 
-        this._context.translate(xTranslation, yTranslation);
         this._context.scale(this._scaleX, this._scaleY);
-        this._context.translate(-xTranslation, -yTranslation);
         this._lastDraw = 0;
-        if (removeClicks) {
-            this._clicks = [];
-            this._zoom = 0;
-            this._scaleX = 1;
-            this._scaleY = 1;
-        }
+    }
+
+    /* PUBLIC API */
+
+    reset() {
+        this._clicks = [];
+        this._zoom = 0;
+        this._scaleX = 1;
+        this._scaleY = 1;
+        this._clearCanvas();
     }
 
     /**

@@ -11,12 +11,20 @@ if (argv.minified) {
     filename = '[name].js';
 }
 
+let entry;
+if (argv.modular) {
+    entry = {
+        DrawrCanvas: './src/lib/DrawrCanvas.js',
+        DrawrClient: './src/lib/DrawrClient.js'
+    };
+} else {
+    entry = {
+        drawr: './src/index.js'
+    };
+}
+
 module.exports = {
-    entry: {
-        drawr: './src/index.js'//,
-        // DrawrCanvas: './src/lib/DrawrCanvas.js',
-        // DrawrClient: './src/lib/DrawrClient.js'
-    },
+    entry: entry,
     output: {
         filename: `dist/${filename}`,
         library: '[name]'

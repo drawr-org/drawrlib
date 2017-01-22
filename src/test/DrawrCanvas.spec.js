@@ -83,9 +83,9 @@ describe('DrawrCanvas', function() {
         expect(canvas._stylingOptions.colour).to.be.equal('#FFFFFF');
     });
 
-    it('should clear canvas', function() {
+    it('should reset canvas', function() {
         canvas._addClick(100, 100, false);
-        canvas.clearCanvas();
+        canvas.reset();
         expect(canvas._clicks).to.have.lengthOf(0);
     });
 });

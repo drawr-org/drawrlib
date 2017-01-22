@@ -1,9 +1,8 @@
 'use strict';
-/* global DrawrClient */
-/* global DrawrCanvas */
+/* global drawr */
 
 let client;
-client = new DrawrClient.default({
+client = new drawr.DrawrClient({
     name: 'competitive lumberjack',
 }, {
     host: 'etsag.de',
@@ -16,7 +15,7 @@ client.addEventListener('update-canvas', function(data) {
     }
 });
 
-let canvas = new DrawrCanvas.default('canvasDiv');
+let canvas = new drawr.DrawrCanvas('canvasDiv');
 canvas.addEventListener('new-click', function(clicks) {
     client.sendCanvasUpdate(clicks);
 });
