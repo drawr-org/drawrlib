@@ -211,7 +211,7 @@ export default class DrawrCanvas {
             }
             this._context.lineTo(this._clicks[i].x, this._clicks[i].y);
             this._context.closePath();
-            this._context.lineWidth = this._clicks[i].style.colour;
+            this._context.lineWidth = this._clicks[i].style.width;
             this._context.stroke();
         }
         this._lastDraw = this._clicks.length > 0 ? this._clicks.length - 1 : 0;
