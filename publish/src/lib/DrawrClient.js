@@ -56,6 +56,8 @@ function onWebSocketMessage(event) {
         this._eventEmitter.emit('new-user', msg.data);
     } else if (msg.type === 'update-canvas') {
         this._eventEmitter.emit('update-canvas', msg.data);
+    } else if (msg.type === 'server-down') {
+        this._eventEmitter.emit('server-down', msg.data);
     }
 }
 
@@ -92,6 +94,7 @@ var DrawrClient = function () {
         this._options = options;
         this._eventEmitter = new _eventemitter2.default();
         this._wsClient = null;
+        this._pendingUpdates = [];
         this._session = {};
     }
     /* Private methods */
@@ -243,7 +246,7 @@ var DrawrClient = function () {
     }, {
         key: 'sendCanvasUpdate',
         value: function sendCanvasUpdate(clicks) {
-            if (this._wsClient.readyState === this._wsClient.OPEN) {
+            if (this._wsClient && this._wsClient.readyState === this._wsClient.OPEN) {
                 if (this._pendingUpdates.length > 0) {
                     var combinedClicks = this._pendingUpdates.pop().concat(clicks);
                     this._wsClient.send(JSON.stringify({
