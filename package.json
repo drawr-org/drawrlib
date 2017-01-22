@@ -10,7 +10,7 @@
     "start": "karma start",
     "preexport": "mkdir -p dist && cp src/style.css dist/style.css",
     "build-publish": "babel src/index.js src/lib/*.js --out-dir publish",
-    "export": "webpack && webpack --minified",
+    "export": "webpack && webpack --minified && webpack --modular && webpack --minified --modular",
     "test": "karma start --singleRun --test --browsers=Chrome",
     "commit-test": "./commit-test.sh",
     "doc": "esdoc",
