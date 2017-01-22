@@ -1,7 +1,11 @@
 import DrawrCanvas from './lib/DrawrCanvas';
 import DrawrClient from './lib/DrawrClient';
 
-module.exports = {
+let drawr = {
     DrawrCanvas: DrawrCanvas,
     DrawrClient: DrawrClient
 };
+
+export default drawr;
+export {DrawrCanvas};
+export {DrawrClient};

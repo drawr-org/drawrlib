@@ -13,8 +13,9 @@ if (argv.minified) {
 
 module.exports = {
     entry: {
-        DrawrCanvas: './src/lib/DrawrCanvas.js',
-        DrawrClient: './src/lib/DrawrClient.js'
+        drawr: './src/index.js'//,
+        // DrawrCanvas: './src/lib/DrawrCanvas.js',
+        // DrawrClient: './src/lib/DrawrClient.js'
     },
     output: {
         filename: `dist/${filename}`,

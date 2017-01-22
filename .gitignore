@@ -1,8 +1,6 @@
-samples
 node_modules
 dist
-src/adapter.js
 coverage
-webrtc-web
 out
 npm-debug.log
+publish
