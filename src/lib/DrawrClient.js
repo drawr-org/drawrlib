@@ -41,6 +41,8 @@ function onWebSocketMessage(event) {
         this._eventEmitter.emit('new-user', msg.data);
     } else if (msg.type === 'update-canvas') {
         this._eventEmitter.emit('update-canvas', msg.data);
+    } else if (msg.type === 'server-down') {
+        this._eventEmitter.emit('server-down', msg.data);
     }
 }
 
