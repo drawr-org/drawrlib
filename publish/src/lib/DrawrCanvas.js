@@ -4,6 +4,8 @@ Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 var _eventemitter = require('eventemitter3');
@@ -121,7 +123,7 @@ var DrawrCanvas = function () {
 
         _classCallCheck(this, DrawrCanvas);
 
-        this._stylingOptions = Object.assign({}, STANDARD_OPTIONS, options);
+        this._stylingOptions = _extends({}, STANDARD_OPTIONS, options);
         this._canvasDiv = document.getElementById(divId);
         this._canvas = document.createElement('canvas');
         this._canvas.setAttribute('class', 'DrawrCanvas');
@@ -165,7 +167,7 @@ var DrawrCanvas = function () {
                 x: x / this._scaleX,
                 y: y / this._scaleY,
                 drag: dragging,
-                style: Object.assign({}, this._stylingOptions),
+                style: _extends({}, this._stylingOptions),
                 remote: false
             });
             this._redraw();
@@ -223,7 +225,7 @@ var DrawrCanvas = function () {
                 }
                 this._context.lineTo(this._clicks[i].x, this._clicks[i].y);
                 this._context.closePath();
-                this._context.lineWidth = this._clicks[i].style.colour;
+                this._context.lineWidth = this._clicks[i].style.width;
                 this._context.stroke();
             }
             this._lastDraw = this._clicks.length > 0 ? this._clicks.length - 1 : 0;
@@ -234,13 +236,13 @@ var DrawrCanvas = function () {
             var clicks = [];
             var totalLength = this._clicks.length - 1;
             // add last click
-            var clickCp = Object.assign({}, this._clicks[totalLength], { remote: true });
+            var clickCp = _extends({}, this._clicks[totalLength], { remote: true });
             clicks.push(clickCp);
             if (clicks[0].drag) {
                 // add all dragging clicks
                 var lastLocalClick = this._getLastLocalClick(totalLength - 1);
                 while (this._clicks[lastLocalClick].drag && lastLocalClick) {
-                    var _clickCp = Object.assign({}, this._clicks[lastLocalClick], { remote: true });
+                    var _clickCp = _extends({}, this._clicks[lastLocalClick], { remote: true });
                     clicks.unshift(_clickCp);
                     lastLocalClick = this._getLastLocalClick(lastLocalClick - 1);
                 }
@@ -324,7 +326,7 @@ var DrawrCanvas = function () {
             if (options.type === DRAWING_TOOLS.ERASER) {
                 options.colour = '#FFFFFF';
             }
-            Object.assign(this._stylingOptions, options);
+            _extends(this._stylingOptions, options);
         }
 
         /**
