@@ -1,6 +1,6 @@
 {
   "name": "drawr",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "drawr core js library",
   "main": "publish/src/index.js",
   "directories": {

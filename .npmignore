@@ -1,3 +1,4 @@
-src
 coverage
-karma.config.js
+karma.conf.js
+webpack.config.js
+commit-test.sh
