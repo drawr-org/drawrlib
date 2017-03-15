@@ -21,8 +21,8 @@ const STANDARD_OPTIONS = {
  */
 function mousedownListener(e) {
     this._timeDragging = window.performance.now();
-    let mouseX = e.pageX - this._canvas.offsetLeft;
-    let mouseY = e.pageY - this._canvas.offsetTop;
+    let mouseX = e.pageX - this._canvasDiv.offsetLeft;
+    let mouseY = e.pageY - this._canvasDiv.offsetTop;
 
     this._paint = true;
     // click will start on next index
@@ -43,9 +43,9 @@ function mousemoveListener(e) {
     let drawingAreaWidth = 10;
 
     let mouseX = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) -
-        this._canvas.offsetLeft;
+        this._canvasDiv.offsetLeft;
     let mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) -
-        this._canvas.offsetTop;
+        this._canvasDiv.offsetTop;
     if (mouseX < drawingAreaX && mouseY < drawingAreaY) {
         if (mouseX > drawingAreaWidth && mouseY > 0) {
             if (this._paint) {
