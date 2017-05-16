@@ -1,6 +1,6 @@
 import {DrawrClient} from './../index.js';
 
-describe('DrawrClient', function() {
+describe.skip('DrawrClient', function() {
     let client;
 
     it('should create server instance', function() {

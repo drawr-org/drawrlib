@@ -11,14 +11,14 @@
     "preexport": "mkdir -p dist && cp src/style.css dist/style.css",
     "build-publish": "cp src/style.css publish/src/ && babel src/index.js src/lib/*.js --out-dir publish",
     "export": "webpack && webpack --minified && webpack --unified && webpack --minified --unified",
-    "test": "karma start --singleRun --test --browsers=Chrome",
-    "commit-test": "./commit-test.sh",
+    "unit-test": "karma start --singleRun --test --browsers=Chrome",
+    "test": "./commit-test.sh",
     "doc": "esdoc",
     "lint": "eslint src/** --ignore-pattern src/style.css"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/drawr-team/core-lib.git"
+    "url": "git+https://github.com/drawr-team/drawrlib.git"
   },
   "author": "drawr-team",
   "contributors": [
@@ -35,9 +35,9 @@
   ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/drawr-team/core-lib/issues"
+    "url": "https://github.com/drawr-team/drawrlib/issues"
   },
-  "homepage": "https://github.com/drawr-team/core-lib#readme",
+  "homepage": "https://github.com/drawr-team/drawrlib#readme",
   "devDependencies": {
     "babel": "^6.5.2",
     "babel-cli": "^6.18.0",

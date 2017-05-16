@@ -80,7 +80,7 @@ describe('DrawrCanvas', function() {
         canvas.updateOptions({
             type: DrawrCanvas.drawingTools.ERASER
         });
-        expect(canvas._stylingOptions.colour).to.be.equal('#FFFFFF');
+        expect(canvas._stylingOptions.color).to.be.equal('#FFFFFF');
     });
 
     it('should reset canvas', function() {
