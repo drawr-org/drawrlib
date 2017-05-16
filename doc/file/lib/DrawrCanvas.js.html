@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <base data-ice="baseUrl" href="../../">
+  <title data-ice="title">lib/DrawrCanvas.js | API Document</title>
+  <link type="text/css" rel="stylesheet" href="css/style.css">
+  <link type="text/css" rel="stylesheet" href="css/prettify-tomorrow.css">
+  <script src="script/prettify/prettify.js"></script>
+  
+  
+  <script src="script/manual.js"></script>
+</head>
+<body class="layout-container" data-ice="rootContainer">
+
+<header>
+  <a href="./">Home</a>
+  
+  <a href="identifiers.html">Reference</a>
+  <a href="source.html">Source</a>
+  
+  <a data-ice="repoURL" href="https://github.com/drawr-team/core-lib" class="repo-url-github">Repository</a>
+  <div class="search-box">
+  <span>
+    <img src="./image/search.png">
+    <span class="search-input-edge"></span><input class="search-input"><span class="search-input-edge"></span>
+  </span>
+    <ul class="search-result"></ul>
+  </div>
+</header>
+
+<nav class="navigation" data-ice="nav"><div>
+  <ul>
+    
+  <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/lib/DrawrCanvas.js~DrawrCanvas.html">DrawrCanvas</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/lib/DrawrClient.js~DrawrClient.html">DrawrClient</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-SessionData">SessionData</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-User">User</a></span></span></li>
+</ul>
+</div>
+</nav>
+
+<div class="content" data-ice="content"><h1 data-ice="title">lib/DrawrCanvas.js</h1>
+<pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">&apos;use strict&apos;;
+
+import &apos;./../style.css&apos;;
+import EventEmitter from &apos;eventemitter3&apos;;
+
+const DRAWING_TOOLS = {
+    PEN: &apos;pen&apos;,
+    ERASER: &apos;eraser&apos;
+};
+
+const STANDARD_OPTIONS = {
+    colour: &apos;#000000&apos;,
+    width: 10,
+    type: DRAWING_TOOLS.PEN
+};
+
+/**
+ * listener to click on canvas
+ * @private
+ * @param {Object} e - event data
+ * @returns {void}
+ */
+function mousedownListener(e) {
+    let mouseX = e.pageX - this._canvasDiv.offsetLeft;
+    let mouseY = e.pageY - this._canvasDiv.offsetTop;
+
+    this._paint = true;
+    // click will start on next index
+    // save to be able to undo
+    this._clickStarts.push(this._lastDrawIndex + 1);
+    this._addClick(mouseX, mouseY, false);
+}
+
+/**
+ * listener to move on canvas
+ * @private
+ * @param {Object} e - event data
+ * @returns {void}
+ */
+function mousemoveListener(e) {
+    let drawingAreaX = this._width;
+    let drawingAreaY = this._height;
+    let drawingAreaWidth = 10;
+
+    let mouseX = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) -
+        this._canvasDiv.offsetLeft;
+    let mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) -
+        this._canvasDiv.offsetTop;
+    if (mouseX &lt; drawingAreaX &amp;&amp; mouseY &lt; drawingAreaY) {
+        if (mouseX &gt; drawingAreaWidth &amp;&amp; mouseY &gt; 0) {
+            if (this._paint) {
+                this._addClick(mouseX, mouseY, true);
+                this._wrapAndEmitClicks();
+            }
+        }
+    } else {
+        if (this._paint) {
+            this._addClick(mouseX, mouseY, false);
+            this._wrapAndEmitClicks();
+        }
+    }
+    // Prevent the whole page from dragging if on mobile
+    e.preventDefault();
+}
+
+/**
+ * listener to finishing draw on canvas
+ * @private
+ * @returns {void}
+ */
+function mouseupListener() {
+    this._paint = false;
+    this._wrapAndEmitClicks();
+}
+
+function resizeListener() {
+    this._width = this._canvasDiv.clientWidth;
+    this._height = this._canvasDiv.clientHeight;
+    setTimeout(() =&gt; {
+        this._canvas.setAttribute(&apos;width&apos;, this._width - 10);
+        this._canvas.setAttribute(&apos;height&apos;, this._height - 10);
+        this._redraw(true);
+    }, 0);
+}
+
+/**
+ * set click listeners on canvas
+ * @private
+ * @returns {void}
+ */
+function setEventListeners() {
+    this._canvas.addEventListener(
+        &apos;mousedown&apos;, mousedownListener.bind(this), false
+    );
+    this._canvas.addEventListener(
+        &apos;mouseup&apos;, mouseupListener.bind(this), false
+    );
+    this._canvas.addEventListener(
+        &apos;mousemove&apos;, mousemoveListener.bind(this), false
+    );
+    this._canvas.addEventListener(
+        &apos;touchstart&apos;, mousedownListener.bind(this), false
+    );
+    this._canvas.addEventListener(
+        &apos;touchmove&apos;, mousemoveListener.bind(this), false
+    );
+    this._canvas.addEventListener(
+        &apos;touchend&apos;, mouseupListener.bind(this), false
+    );
+    window.addEventListener(&apos;resize&apos;, resizeListener.bind(this), false);
+}
+
+/**
+ * Class to do rendering and get user inputs from drawr drawing solution
+ */
+export default class DrawrCanvas {
+    /**
+     * creates a new canvas
+     * @param {String} divId - div where canvas should be created
+     * @param {Object} options - styling options for the canvas
+     * @returns {void}
+     */
+    constructor(divId, options) {
+        this._stylingOptions = Object.assign({}, STANDARD_OPTIONS, options);
+        this._canvasDiv = document.getElementById(divId);
+        this._canvas = document.createElement(&apos;canvas&apos;);
+        this._canvas.setAttribute(&apos;class&apos;, &apos;DrawrCanvas&apos;);
+        // hack so that elements can be fully loaded to get attributes
+        this._width = this._canvasDiv.clientWidth;
+        this._height = this._canvasDiv.clientHeight;
+        setTimeout(() =&gt; {
+            this._canvas.setAttribute(&apos;width&apos;, this._width);
+            this._canvas.setAttribute(&apos;height&apos;, this._height);
+        }, 0);
+        this._canvasDiv.appendChild(this._canvas);
+        this._paint = false;
+        setEventListeners.apply(this);
+        this._context = this._canvas.getContext(&apos;2d&apos;);
+        this._eventEmitter = new EventEmitter();
+        // save original context for transformations
+        this._context.save();
+        this._clicks = [];
+        this._zoom = 0;
+        this._scaleX = 1;
+        this._scaleY = 1;
+        this._lastDrawIndex = 0;
+        this._clickStarts = [];
+        this._redoClicks = [];
+        this._lastEmittedDrag = 0;
+    }
+
+    /**
+     * add and draw changes to canvas
+     * @private
+     * @param {Number} x - x coordinate
+     * @param {Number} y - y coordinate
+     * @param {Boolean} dragging - if point should be connected to last one
+     * @returns {void}
+     */
+    _addClick(x, y, dragging) {
+        this._clicks.push({
+            x: x/this._width,
+            y: y/this._height,
+            drag: dragging,
+            style: Object.assign({}, this._stylingOptions),
+            remote: false
+        });
+        this._redraw();
+    }
+
+    /**
+     * get index of last click made by local user
+     * @private
+     * @param {Number} index - index from where to start looking
+     * @return {Number} index - last local index from given click
+     */
+    _getLastLocalClick(index) {
+        for (let i = index; i &gt;= 0; i--) {
+            if (!this._clicks[i].remote) {
+                return i;
+            }
+        }
+    }
+
+    /**
+     * add clicks coming from server
+     * @private
+     * @param {Boolean} hard - if true, clears and rescale canvas, and redraws all clicks
+     * @returns {void}
+     */
+    _redraw(hard = false) {
+        this._context.lineJoin = &apos;round&apos;;
+        if (hard) {
+            this._clearCanvas();
+        }
+        for (let i = this._lastDrawIndex; i &lt; this._clicks.length; i++) {
+            this._context.beginPath();
+            this._context.strokeStyle = this._clicks[i].style.colour;
+            if (this._clicks[i].drag &amp;&amp; i &amp;&amp; !this._clicks[i].pathStart) {
+                if (this._clicks[i].remote) {
+                    this._context.moveTo(
+                        this._clicks[i-1].x * this._width,
+                        this._clicks[i-1].y * this._height
+                    );
+                } else {
+                    // remote clicks might be rendered while user is dragging
+                    // if this is the case, point should be connected to last local click, not a remote one
+                    let lastLocalClick = this._getLastLocalClick(i-1);
+                    if (lastLocalClick) {
+                        this._context.moveTo(
+                            this._clicks[lastLocalClick].x * this._width,
+                            this._clicks[lastLocalClick].y * this._height
+                        );
+                    }
+                }
+            } else {
+                this._context.moveTo(
+                    (this._clicks[i].x * this._width) - 1,
+                    this._clicks[i].y * this._height
+                );
+            }
+            this._context.lineTo(
+                this._clicks[i].x * this._width,
+                this._clicks[i].y * this._height
+            );
+            this._context.closePath();
+            this._context.lineWidth = this._clicks[i].style.width;
+            this._context.stroke();
+        }
+        this._lastDrawIndex =
+            this._clicks.length &gt; 0 ? (this._clicks.length - 1) : 0;
+    }
+
+    _wrapAndEmitClicks() {
+        let clicks = [];
+        let totalLength = this._clicks.length - 1;
+        // add last click
+        let clickCp = Object.assign(
+            {}, this._clicks[totalLength], {remote: true});
+        clicks.push(clickCp);
+        if (clicks[0].drag) {
+            // add all dragging clicks not emitted so far
+            let lastLocalClick = this._getLastLocalClick(totalLength - 1);
+            while (lastLocalClick &gt; this._lastEmittedDrag &amp;&amp;
+                this._clicks[lastLocalClick].drag &amp;&amp; lastLocalClick
+            ) {
+                this._lastEmittedDrag = lastLocalClick;
+                let clickCp = Object.assign(
+                    {}, this._clicks[lastLocalClick], {remote: true}
+                );
+                clicks.unshift(clickCp);
+                lastLocalClick = this._getLastLocalClick(lastLocalClick - 1);
+            }
+        }
+        clicks[0].pathStart = true;
+        this._eventEmitter.emit(&apos;new-click&apos;, clicks);
+    }
+
+    /**
+     * clear all clicks from canvas
+     * @returns {void}
+     */
+    _clearCanvas() {
+        // restore original context to clear full canvas
+        this._context.restore();
+        this._context.clearRect(
+            0, 0, this._width, this._height
+        );
+        // save it again for transformations
+        this._context.save();
+
+        this._context.scale(this._scaleX, this._scaleY);
+        this._lastDrawIndex = 0;
+    }
+
+    /* PUBLIC API */
+
+    /**
+     * resets to initial started
+     * @return {void}
+     */
+    reset() {
+        this._clicks = [];
+        this._zoom = 0;
+        this._scaleX = 1;
+        this._scaleY = 1;
+        this._clearCanvas();
+    }
+
+    /**
+     * add image to canvas at given coordinates
+     * @param {Object} img - image to be draw
+     * @param {Number} x - x coordinate
+     * @param {Number} y - y coordinate
+     * @returns {void}
+     */
+    addImage(img, x, y) {
+        this._context.drawImage(
+            img, 0, 0, 100, 100, x, y, this._scaleX, this._scaleY
+        );
+    }
+
+    /**
+     * add clicks coming from server
+     * @param {Object} clicks - clicks coming from server
+     * @returns {void}
+     */
+    remoteUpdate(clicks) {
+        this._clickStarts.push(this._lastDrawIndex + 1);
+        this._clicks = this._clicks.concat(clicks);
+        this._redraw();
+    }
+
+    /**
+     * updates styling options
+     * @param {Object} options - new option to be set
+     * @returns {void}
+     */
+    updateOptions(options) {
+        if (options.type === DRAWING_TOOLS.ERASER) {
+            options.colour = &apos;#FFFFFF&apos;;
+        }
+        Object.assign(this._stylingOptions, options);
+    }
+
+    /**
+     * set new zoom level and calls redraw
+     * @param {Number} zoom - new zoom level
+     * @returns {void}
+     */
+    setZoom(zoom) {
+        if (isNaN(zoom) || zoom &lt; 0) {
+            throw new TypeError(
+                &apos;zoom must be an integer equal or bigger than zero&apos;
+            );
+        }
+        this._zoom = zoom;
+        this._scaleX = 1 - this._zoom*0.1;
+        this._scaleY = 1 - this._zoom*0.1;
+        this._redraw(true);
+    }
+
+    /**
+     * add listener to canvas event
+     * @param {String} name - event name
+     * @param {Function} listener - function to be executed on event
+     * @param {Context} context - context (this value) to execute listener
+     * @returns {void}
+     */
+    addEventListener(name, listener, context) {
+        if (typeof name !== &apos;string&apos;) {
+            throw new TypeError(&apos;event name must be a string&apos;);
+        }
+        if (typeof listener !== &apos;function&apos;) {
+            throw new TypeError(&apos;listener must be a function&apos;);
+        }
+        this._eventEmitter.on(name, listener, context);
+    }
+
+    /**
+     * undo last click
+     * @returns {void}
+     */
+    undoLastClick() {
+        if (this._clickStarts.length &gt; 0) {
+            let initialIndex = this._clickStarts.pop();
+            if (initialIndex) {
+                this._redoClicks.push(this._clicks.splice(
+                    initialIndex, this._clicks.length - initialIndex
+                ));
+                this._redraw(true);
+            }
+        }
+    }
+
+    /**
+     * redo last click
+     * @returns {void}
+     */
+    redoLastClick() {
+        if (this._redoClicks.length &gt; 0) {
+            this._clicks = this._clicks.concat(this._redoClicks.pop());
+            this._redraw(true);
+        }
+    }
+
+    /**
+     * gets all clicks drawn on canvas
+     * @return {Array} clicks - all clicks on canvas instance
+     */
+    getAllClicks() {
+        return this._clicks.slice();
+    }
+
+    /**
+     * @prop {String} PEN - pen-like drawing
+     * @prop {String} ERASER - eraser
+     */
+    static get drawingTools() {
+        return DRAWING_TOOLS;
+    }
+
+}
+</code></pre>
+
+</div>
+
+<footer class="footer">
+  Generated by <a href="https://esdoc.org">ESDoc<span data-ice="esdocVersion">(0.5.2)</span><img src="./image/esdoc-logo-mini-black.png"></a>
+</footer>
+
+<script src="script/search_index.js"></script>
+<script src="script/search.js"></script>
+<script src="script/pretty-print.js"></script>
+<script src="script/inherited-summary.js"></script>
+<script src="script/test-summary.js"></script>
+<script src="script/inner-link.js"></script>
+<script src="script/patch-for-local.js"></script>
+</body>
+</html>

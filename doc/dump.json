@@ -1,0 +1,2964 @@
+[
+  {
+    "__docId__": 0,
+    "kind": "file",
+    "name": "lib/DrawrCanvas.js",
+    "content": "'use strict';\n\nimport './../style.css';\nimport EventEmitter from 'eventemitter3';\n\nconst DRAWING_TOOLS = {\n    PEN: 'pen',\n    ERASER: 'eraser'\n};\n\nconst STANDARD_OPTIONS = {\n    colour: '#000000',\n    width: 10,\n    type: DRAWING_TOOLS.PEN\n};\n\n/**\n * listener to click on canvas\n * @private\n * @param {Object} e - event data\n * @returns {void}\n */\nfunction mousedownListener(e) {\n    let mouseX = e.pageX - this._canvasDiv.offsetLeft;\n    let mouseY = e.pageY - this._canvasDiv.offsetTop;\n\n    this._paint = true;\n    // click will start on next index\n    // save to be able to undo\n    this._clickStarts.push(this._lastDrawIndex + 1);\n    this._addClick(mouseX, mouseY, false);\n}\n\n/**\n * listener to move on canvas\n * @private\n * @param {Object} e - event data\n * @returns {void}\n */\nfunction mousemoveListener(e) {\n    let drawingAreaX = this._width;\n    let drawingAreaY = this._height;\n    let drawingAreaWidth = 10;\n\n    let mouseX = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) -\n        this._canvasDiv.offsetLeft;\n    let mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) -\n        this._canvasDiv.offsetTop;\n    if (mouseX < drawingAreaX && mouseY < drawingAreaY) {\n        if (mouseX > drawingAreaWidth && mouseY > 0) {\n            if (this._paint) {\n                this._addClick(mouseX, mouseY, true);\n                this._wrapAndEmitClicks();\n            }\n        }\n    } else {\n        if (this._paint) {\n            this._addClick(mouseX, mouseY, false);\n            this._wrapAndEmitClicks();\n        }\n    }\n    // Prevent the whole page from dragging if on mobile\n    e.preventDefault();\n}\n\n/**\n * listener to finishing draw on canvas\n * @private\n * @returns {void}\n */\nfunction mouseupListener() {\n    this._paint = false;\n    this._wrapAndEmitClicks();\n}\n\nfunction resizeListener() {\n    this._width = this._canvasDiv.clientWidth;\n    this._height = this._canvasDiv.clientHeight;\n    setTimeout(() => {\n        this._canvas.setAttribute('width', this._width - 10);\n        this._canvas.setAttribute('height', this._height - 10);\n        this._redraw(true);\n    }, 0);\n}\n\n/**\n * set click listeners on canvas\n * @private\n * @returns {void}\n */\nfunction setEventListeners() {\n    this._canvas.addEventListener(\n        'mousedown', mousedownListener.bind(this), false\n    );\n    this._canvas.addEventListener(\n        'mouseup', mouseupListener.bind(this), false\n    );\n    this._canvas.addEventListener(\n        'mousemove', mousemoveListener.bind(this), false\n    );\n    this._canvas.addEventListener(\n        'touchstart', mousedownListener.bind(this), false\n    );\n    this._canvas.addEventListener(\n        'touchmove', mousemoveListener.bind(this), false\n    );\n    this._canvas.addEventListener(\n        'touchend', mouseupListener.bind(this), false\n    );\n    window.addEventListener('resize', resizeListener.bind(this), false);\n}\n\n/**\n * Class to do rendering and get user inputs from drawr drawing solution\n */\nexport default class DrawrCanvas {\n    /**\n     * creates a new canvas\n     * @param {String} divId - div where canvas should be created\n     * @param {Object} options - styling options for the canvas\n     * @returns {void}\n     */\n    constructor(divId, options) {\n        this._stylingOptions = Object.assign({}, STANDARD_OPTIONS, options);\n        this._canvasDiv = document.getElementById(divId);\n        this._canvas = document.createElement('canvas');\n        this._canvas.setAttribute('class', 'DrawrCanvas');\n        // hack so that elements can be fully loaded to get attributes\n        this._width = this._canvasDiv.clientWidth;\n        this._height = this._canvasDiv.clientHeight;\n        setTimeout(() => {\n            this._canvas.setAttribute('width', this._width);\n            this._canvas.setAttribute('height', this._height);\n        }, 0);\n        this._canvasDiv.appendChild(this._canvas);\n        this._paint = false;\n        setEventListeners.apply(this);\n        this._context = this._canvas.getContext('2d');\n        this._eventEmitter = new EventEmitter();\n        // save original context for transformations\n        this._context.save();\n        this._clicks = [];\n        this._zoom = 0;\n        this._scaleX = 1;\n        this._scaleY = 1;\n        this._lastDrawIndex = 0;\n        this._clickStarts = [];\n        this._redoClicks = [];\n        this._lastEmittedDrag = 0;\n    }\n\n    /**\n     * add and draw changes to canvas\n     * @private\n     * @param {Number} x - x coordinate\n     * @param {Number} y - y coordinate\n     * @param {Boolean} dragging - if point should be connected to last one\n     * @returns {void}\n     */\n    _addClick(x, y, dragging) {\n        this._clicks.push({\n            x: x/this._width,\n            y: y/this._height,\n            drag: dragging,\n            style: Object.assign({}, this._stylingOptions),\n            remote: false\n        });\n        this._redraw();\n    }\n\n    /**\n     * get index of last click made by local user\n     * @private\n     * @param {Number} index - index from where to start looking\n     * @return {Number} index - last local index from given click\n     */\n    _getLastLocalClick(index) {\n        for (let i = index; i >= 0; i--) {\n            if (!this._clicks[i].remote) {\n                return i;\n            }\n        }\n    }\n\n    /**\n     * add clicks coming from server\n     * @private\n     * @param {Boolean} hard - if true, clears and rescale canvas, and redraws all clicks\n     * @returns {void}\n     */\n    _redraw(hard = false) {\n        this._context.lineJoin = 'round';\n        if (hard) {\n            this._clearCanvas();\n        }\n        for (let i = this._lastDrawIndex; i < this._clicks.length; i++) {\n            this._context.beginPath();\n            this._context.strokeStyle = this._clicks[i].style.colour;\n            if (this._clicks[i].drag && i && !this._clicks[i].pathStart) {\n                if (this._clicks[i].remote) {\n                    this._context.moveTo(\n                        this._clicks[i-1].x * this._width,\n                        this._clicks[i-1].y * this._height\n                    );\n                } else {\n                    // remote clicks might be rendered while user is dragging\n                    // if this is the case, point should be connected to last local click, not a remote one\n                    let lastLocalClick = this._getLastLocalClick(i-1);\n                    if (lastLocalClick) {\n                        this._context.moveTo(\n                            this._clicks[lastLocalClick].x * this._width,\n                            this._clicks[lastLocalClick].y * this._height\n                        );\n                    }\n                }\n            } else {\n                this._context.moveTo(\n                    (this._clicks[i].x * this._width) - 1,\n                    this._clicks[i].y * this._height\n                );\n            }\n            this._context.lineTo(\n                this._clicks[i].x * this._width,\n                this._clicks[i].y * this._height\n            );\n            this._context.closePath();\n            this._context.lineWidth = this._clicks[i].style.width;\n            this._context.stroke();\n        }\n        this._lastDrawIndex =\n            this._clicks.length > 0 ? (this._clicks.length - 1) : 0;\n    }\n\n    _wrapAndEmitClicks() {\n        let clicks = [];\n        let totalLength = this._clicks.length - 1;\n        // add last click\n        let clickCp = Object.assign(\n            {}, this._clicks[totalLength], {remote: true});\n        clicks.push(clickCp);\n        if (clicks[0].drag) {\n            // add all dragging clicks not emitted so far\n            let lastLocalClick = this._getLastLocalClick(totalLength - 1);\n            while (lastLocalClick > this._lastEmittedDrag &&\n                this._clicks[lastLocalClick].drag && lastLocalClick\n            ) {\n                this._lastEmittedDrag = lastLocalClick;\n                let clickCp = Object.assign(\n                    {}, this._clicks[lastLocalClick], {remote: true}\n                );\n                clicks.unshift(clickCp);\n                lastLocalClick = this._getLastLocalClick(lastLocalClick - 1);\n            }\n        }\n        clicks[0].pathStart = true;\n        this._eventEmitter.emit('new-click', clicks);\n    }\n\n    /**\n     * clear all clicks from canvas\n     * @returns {void}\n     */\n    _clearCanvas() {\n        // restore original context to clear full canvas\n        this._context.restore();\n        this._context.clearRect(\n            0, 0, this._width, this._height\n        );\n        // save it again for transformations\n        this._context.save();\n\n        this._context.scale(this._scaleX, this._scaleY);\n        this._lastDrawIndex = 0;\n    }\n\n    /* PUBLIC API */\n\n    /**\n     * resets to initial started\n     * @return {void}\n     */\n    reset() {\n        this._clicks = [];\n        this._zoom = 0;\n        this._scaleX = 1;\n        this._scaleY = 1;\n        this._clearCanvas();\n    }\n\n    /**\n     * add image to canvas at given coordinates\n     * @param {Object} img - image to be draw\n     * @param {Number} x - x coordinate\n     * @param {Number} y - y coordinate\n     * @returns {void}\n     */\n    addImage(img, x, y) {\n        this._context.drawImage(\n            img, 0, 0, 100, 100, x, y, this._scaleX, this._scaleY\n        );\n    }\n\n    /**\n     * add clicks coming from server\n     * @param {Object} clicks - clicks coming from server\n     * @returns {void}\n     */\n    remoteUpdate(clicks) {\n        this._clickStarts.push(this._lastDrawIndex + 1);\n        this._clicks = this._clicks.concat(clicks);\n        this._redraw();\n    }\n\n    /**\n     * updates styling options\n     * @param {Object} options - new option to be set\n     * @returns {void}\n     */\n    updateOptions(options) {\n        if (options.type === DRAWING_TOOLS.ERASER) {\n            options.colour = '#FFFFFF';\n        }\n        Object.assign(this._stylingOptions, options);\n    }\n\n    /**\n     * set new zoom level and calls redraw\n     * @param {Number} zoom - new zoom level\n     * @returns {void}\n     */\n    setZoom(zoom) {\n        if (isNaN(zoom) || zoom < 0) {\n            throw new TypeError(\n                'zoom must be an integer equal or bigger than zero'\n            );\n        }\n        this._zoom = zoom;\n        this._scaleX = 1 - this._zoom*0.1;\n        this._scaleY = 1 - this._zoom*0.1;\n        this._redraw(true);\n    }\n\n    /**\n     * add listener to canvas event\n     * @param {String} name - event name\n     * @param {Function} listener - function to be executed on event\n     * @param {Context} context - context (this value) to execute listener\n     * @returns {void}\n     */\n    addEventListener(name, listener, context) {\n        if (typeof name !== 'string') {\n            throw new TypeError('event name must be a string');\n        }\n        if (typeof listener !== 'function') {\n            throw new TypeError('listener must be a function');\n        }\n        this._eventEmitter.on(name, listener, context);\n    }\n\n    /**\n     * undo last click\n     * @returns {void}\n     */\n    undoLastClick() {\n        if (this._clickStarts.length > 0) {\n            let initialIndex = this._clickStarts.pop();\n            if (initialIndex) {\n                this._redoClicks.push(this._clicks.splice(\n                    initialIndex, this._clicks.length - initialIndex\n                ));\n                this._redraw(true);\n            }\n        }\n    }\n\n    /**\n     * redo last click\n     * @returns {void}\n     */\n    redoLastClick() {\n        if (this._redoClicks.length > 0) {\n            this._clicks = this._clicks.concat(this._redoClicks.pop());\n            this._redraw(true);\n        }\n    }\n\n    /**\n     * gets all clicks drawn on canvas\n     * @return {Array} clicks - all clicks on canvas instance\n     */\n    getAllClicks() {\n        return this._clicks.slice();\n    }\n\n    /**\n     * @prop {String} PEN - pen-like drawing\n     * @prop {String} ERASER - eraser\n     */\n    static get drawingTools() {\n        return DRAWING_TOOLS;\n    }\n\n}\n",
+    "static": true,
+    "longname": "lib/DrawrCanvas.js",
+    "access": null,
+    "description": null,
+    "lineNumber": 1
+  },
+  {
+    "__docId__": 1,
+    "kind": "variable",
+    "name": "DRAWING_TOOLS",
+    "memberof": "lib/DrawrCanvas.js",
+    "static": true,
+    "longname": "lib/DrawrCanvas.js~DRAWING_TOOLS",
+    "access": null,
+    "export": false,
+    "importPath": "drawr/lib/DrawrCanvas.js",
+    "importStyle": null,
+    "description": null,
+    "lineNumber": 6,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "{\"PEN\": string, \"ERASER\": string}"
+      ]
+    }
+  },
+  {
+    "__docId__": 2,
+    "kind": "variable",
+    "name": "STANDARD_OPTIONS",
+    "memberof": "lib/DrawrCanvas.js",
+    "static": true,
+    "longname": "lib/DrawrCanvas.js~STANDARD_OPTIONS",
+    "access": null,
+    "export": false,
+    "importPath": "drawr/lib/DrawrCanvas.js",
+    "importStyle": null,
+    "description": null,
+    "lineNumber": 11,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "{\"colour\": string, \"width\": number, \"type\": *}"
+      ]
+    }
+  },
+  {
+    "__docId__": 3,
+    "kind": "function",
+    "name": "mousedownListener",
+    "memberof": "lib/DrawrCanvas.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "lib/DrawrCanvas.js~mousedownListener",
+    "access": "private",
+    "export": false,
+    "importPath": "drawr/lib/DrawrCanvas.js",
+    "importStyle": null,
+    "description": "listener to click on canvas",
+    "lineNumber": 23,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "Object"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "e",
+        "description": "event data"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 4,
+    "kind": "function",
+    "name": "mousemoveListener",
+    "memberof": "lib/DrawrCanvas.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "lib/DrawrCanvas.js~mousemoveListener",
+    "access": "private",
+    "export": false,
+    "importPath": "drawr/lib/DrawrCanvas.js",
+    "importStyle": null,
+    "description": "listener to move on canvas",
+    "lineNumber": 40,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "Object"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "e",
+        "description": "event data"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 5,
+    "kind": "function",
+    "name": "mouseupListener",
+    "memberof": "lib/DrawrCanvas.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "lib/DrawrCanvas.js~mouseupListener",
+    "access": "private",
+    "export": false,
+    "importPath": "drawr/lib/DrawrCanvas.js",
+    "importStyle": null,
+    "description": "listener to finishing draw on canvas",
+    "lineNumber": 71,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 6,
+    "kind": "function",
+    "name": "resizeListener",
+    "memberof": "lib/DrawrCanvas.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "lib/DrawrCanvas.js~resizeListener",
+    "access": null,
+    "export": false,
+    "importPath": "drawr/lib/DrawrCanvas.js",
+    "importStyle": null,
+    "description": null,
+    "lineNumber": 76,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "params": []
+  },
+  {
+    "__docId__": 7,
+    "kind": "function",
+    "name": "setEventListeners",
+    "memberof": "lib/DrawrCanvas.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "lib/DrawrCanvas.js~setEventListeners",
+    "access": "private",
+    "export": false,
+    "importPath": "drawr/lib/DrawrCanvas.js",
+    "importStyle": null,
+    "description": "set click listeners on canvas",
+    "lineNumber": 91,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 8,
+    "kind": "class",
+    "name": "DrawrCanvas",
+    "memberof": "lib/DrawrCanvas.js",
+    "static": true,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas",
+    "access": null,
+    "export": true,
+    "importPath": "drawr/lib/DrawrCanvas.js",
+    "importStyle": "DrawrCanvas",
+    "description": "Class to do rendering and get user inputs from drawr drawing solution",
+    "lineNumber": 116,
+    "interface": false
+  },
+  {
+    "__docId__": 9,
+    "kind": "constructor",
+    "name": "constructor",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#constructor",
+    "access": null,
+    "description": "creates a new canvas",
+    "lineNumber": 123,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "String"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "divId",
+        "description": "div where canvas should be created"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Object"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "options",
+        "description": "styling options for the canvas"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 10,
+    "kind": "member",
+    "name": "_stylingOptions",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_stylingOptions",
+    "access": null,
+    "description": null,
+    "lineNumber": 124,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 11,
+    "kind": "member",
+    "name": "_canvasDiv",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_canvasDiv",
+    "access": null,
+    "description": null,
+    "lineNumber": 125,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 12,
+    "kind": "member",
+    "name": "_canvas",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_canvas",
+    "access": null,
+    "description": null,
+    "lineNumber": 126,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 13,
+    "kind": "member",
+    "name": "_width",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_width",
+    "access": null,
+    "description": null,
+    "lineNumber": 129,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 14,
+    "kind": "member",
+    "name": "_height",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_height",
+    "access": null,
+    "description": null,
+    "lineNumber": 130,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 15,
+    "kind": "member",
+    "name": "_paint",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_paint",
+    "access": null,
+    "description": null,
+    "lineNumber": 136,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "boolean"
+      ]
+    }
+  },
+  {
+    "__docId__": 16,
+    "kind": "member",
+    "name": "_context",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_context",
+    "access": null,
+    "description": null,
+    "lineNumber": 138,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 17,
+    "kind": "member",
+    "name": "_eventEmitter",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_eventEmitter",
+    "access": null,
+    "description": null,
+    "lineNumber": 139,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 18,
+    "kind": "member",
+    "name": "_clicks",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_clicks",
+    "access": null,
+    "description": null,
+    "lineNumber": 142,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*[]"
+      ]
+    }
+  },
+  {
+    "__docId__": 19,
+    "kind": "member",
+    "name": "_zoom",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_zoom",
+    "access": null,
+    "description": null,
+    "lineNumber": 143,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "number"
+      ]
+    }
+  },
+  {
+    "__docId__": 20,
+    "kind": "member",
+    "name": "_scaleX",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_scaleX",
+    "access": null,
+    "description": null,
+    "lineNumber": 144,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "number"
+      ]
+    }
+  },
+  {
+    "__docId__": 21,
+    "kind": "member",
+    "name": "_scaleY",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_scaleY",
+    "access": null,
+    "description": null,
+    "lineNumber": 145,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "number"
+      ]
+    }
+  },
+  {
+    "__docId__": 22,
+    "kind": "member",
+    "name": "_lastDrawIndex",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_lastDrawIndex",
+    "access": null,
+    "description": null,
+    "lineNumber": 146,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "number"
+      ]
+    }
+  },
+  {
+    "__docId__": 23,
+    "kind": "member",
+    "name": "_clickStarts",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_clickStarts",
+    "access": null,
+    "description": null,
+    "lineNumber": 147,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*[]"
+      ]
+    }
+  },
+  {
+    "__docId__": 24,
+    "kind": "member",
+    "name": "_redoClicks",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_redoClicks",
+    "access": null,
+    "description": null,
+    "lineNumber": 148,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*[]"
+      ]
+    }
+  },
+  {
+    "__docId__": 25,
+    "kind": "member",
+    "name": "_lastEmittedDrag",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_lastEmittedDrag",
+    "access": null,
+    "description": null,
+    "lineNumber": 149,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "number"
+      ]
+    }
+  },
+  {
+    "__docId__": 26,
+    "kind": "method",
+    "name": "_addClick",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_addClick",
+    "access": "private",
+    "description": "add and draw changes to canvas",
+    "lineNumber": 160,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "Number"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "x",
+        "description": "x coordinate"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Number"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "y",
+        "description": "y coordinate"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Boolean"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "dragging",
+        "description": "if point should be connected to last one"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 27,
+    "kind": "method",
+    "name": "_getLastLocalClick",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_getLastLocalClick",
+    "access": "private",
+    "description": "get index of last click made by local user",
+    "lineNumber": 177,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "Number"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "index",
+        "description": "index from where to start looking"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "Number"
+      ],
+      "spread": false,
+      "description": "index - last local index from given click"
+    }
+  },
+  {
+    "__docId__": 28,
+    "kind": "method",
+    "name": "_redraw",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_redraw",
+    "access": "private",
+    "description": "add clicks coming from server",
+    "lineNumber": 191,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "Boolean"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "hard",
+        "description": "if true, clears and rescale canvas, and redraws all clicks"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 29,
+    "kind": "member",
+    "name": "_lastDrawIndex",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_lastDrawIndex",
+    "access": null,
+    "description": null,
+    "lineNumber": 230,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 30,
+    "kind": "method",
+    "name": "_wrapAndEmitClicks",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_wrapAndEmitClicks",
+    "access": null,
+    "description": null,
+    "lineNumber": 234,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "params": []
+  },
+  {
+    "__docId__": 31,
+    "kind": "member",
+    "name": "_lastEmittedDrag",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_lastEmittedDrag",
+    "access": null,
+    "description": null,
+    "lineNumber": 247,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 32,
+    "kind": "method",
+    "name": "_clearCanvas",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_clearCanvas",
+    "access": null,
+    "description": "clear all clicks from canvas",
+    "lineNumber": 263,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 33,
+    "kind": "member",
+    "name": "_lastDrawIndex",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_lastDrawIndex",
+    "access": null,
+    "description": null,
+    "lineNumber": 273,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "number"
+      ]
+    }
+  },
+  {
+    "__docId__": 34,
+    "kind": "method",
+    "name": "reset",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#reset",
+    "access": null,
+    "description": "resets to initial started",
+    "lineNumber": 282,
+    "params": [],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 35,
+    "kind": "member",
+    "name": "_clicks",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_clicks",
+    "access": null,
+    "description": null,
+    "lineNumber": 283,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*[]"
+      ]
+    }
+  },
+  {
+    "__docId__": 36,
+    "kind": "member",
+    "name": "_zoom",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_zoom",
+    "access": null,
+    "description": null,
+    "lineNumber": 284,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "number"
+      ]
+    }
+  },
+  {
+    "__docId__": 37,
+    "kind": "member",
+    "name": "_scaleX",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_scaleX",
+    "access": null,
+    "description": null,
+    "lineNumber": 285,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "number"
+      ]
+    }
+  },
+  {
+    "__docId__": 38,
+    "kind": "member",
+    "name": "_scaleY",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_scaleY",
+    "access": null,
+    "description": null,
+    "lineNumber": 286,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "number"
+      ]
+    }
+  },
+  {
+    "__docId__": 39,
+    "kind": "method",
+    "name": "addImage",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#addImage",
+    "access": null,
+    "description": "add image to canvas at given coordinates",
+    "lineNumber": 297,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "Object"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "img",
+        "description": "image to be draw"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Number"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "x",
+        "description": "x coordinate"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Number"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "y",
+        "description": "y coordinate"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 40,
+    "kind": "method",
+    "name": "remoteUpdate",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#remoteUpdate",
+    "access": null,
+    "description": "add clicks coming from server",
+    "lineNumber": 308,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "Object"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "clicks",
+        "description": "clicks coming from server"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 41,
+    "kind": "member",
+    "name": "_clicks",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_clicks",
+    "access": null,
+    "description": null,
+    "lineNumber": 310,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 42,
+    "kind": "method",
+    "name": "updateOptions",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#updateOptions",
+    "access": null,
+    "description": "updates styling options",
+    "lineNumber": 319,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "Object"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "options",
+        "description": "new option to be set"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 43,
+    "kind": "method",
+    "name": "setZoom",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#setZoom",
+    "access": null,
+    "description": "set new zoom level and calls redraw",
+    "lineNumber": 331,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "Number"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "zoom",
+        "description": "new zoom level"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 44,
+    "kind": "member",
+    "name": "_zoom",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_zoom",
+    "access": null,
+    "description": null,
+    "lineNumber": 337,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 45,
+    "kind": "member",
+    "name": "_scaleX",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_scaleX",
+    "access": null,
+    "description": null,
+    "lineNumber": 338,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 46,
+    "kind": "member",
+    "name": "_scaleY",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_scaleY",
+    "access": null,
+    "description": null,
+    "lineNumber": 339,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 47,
+    "kind": "method",
+    "name": "addEventListener",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#addEventListener",
+    "access": null,
+    "description": "add listener to canvas event",
+    "lineNumber": 350,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "String"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "name",
+        "description": "event name"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Function"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "listener",
+        "description": "function to be executed on event"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Context"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "context",
+        "description": "context (this value) to execute listener"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 48,
+    "kind": "method",
+    "name": "undoLastClick",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#undoLastClick",
+    "access": null,
+    "description": "undo last click",
+    "lineNumber": 364,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 49,
+    "kind": "method",
+    "name": "redoLastClick",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#redoLastClick",
+    "access": null,
+    "description": "redo last click",
+    "lineNumber": 380,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 50,
+    "kind": "member",
+    "name": "_clicks",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#_clicks",
+    "access": null,
+    "description": null,
+    "lineNumber": 382,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 51,
+    "kind": "method",
+    "name": "getAllClicks",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas#getAllClicks",
+    "access": null,
+    "description": "gets all clicks drawn on canvas",
+    "lineNumber": 391,
+    "params": [],
+    "return": {
+      "nullable": null,
+      "types": [
+        "Array"
+      ],
+      "spread": false,
+      "description": "clicks - all clicks on canvas instance"
+    }
+  },
+  {
+    "__docId__": 52,
+    "kind": "get",
+    "name": "drawingTools",
+    "memberof": "lib/DrawrCanvas.js~DrawrCanvas",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "lib/DrawrCanvas.js~DrawrCanvas.drawingTools",
+    "access": null,
+    "description": "",
+    "lineNumber": 399,
+    "unknown": [
+      {
+        "tagName": "@prop",
+        "tagValue": "{String} PEN - pen-like drawing"
+      },
+      {
+        "tagName": "@prop",
+        "tagValue": "{String} ERASER - eraser"
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 53,
+    "kind": "file",
+    "name": "lib/DrawrClient.js",
+    "content": "'use strict';\n\n/* msg schema\n    Message {\n        status,\n        type,\n        data\n    }\n*/\n\nimport EventEmitter from 'eventemitter3';\nimport 'whatwg-fetch';\n\n/**\n * error handling if websocket fails to connect\n * @private\n * @param {Object} event - websocket envent data\n * @returns {void}\n */\nfunction onWebSocketError(event) {\n    console.log('error connecting to ws server');\n    this._eventEmitter.emit('websocket-error', event.reason);\n}\n\n/**\n * emit event when websocket connection is open\n * @private\n * @param {Object} event - websocket envent data\n * @returns {void}\n */\nfunction onWebSocketOpen(event) {\n    console.log('connected to websocket server');\n    this._eventEmitter.emit('websocket-open', event.reason);\n}\n\n/**\n * emit event when websocket connection is closed by the server\n * @private\n * @param {Object} event - websocket envent data\n * @returns {void}\n */\nfunction onWebSocketClose(event) {\n    console.log('websocket server sent close:', event.reason);\n    this._wsClient.close(1000, 'client closed');\n    // TODO: clean up\n}\n\n/**\n * handle wedsocket messages from server\n * @private\n * @param {Object} event - websocket event data\n * @returns {void}\n */\nfunction onWebSocketMessage(event) {\n    let msg = JSON.parse(event.data);\n    if (msg.type === 'new-user') {\n        this._eventEmitter.emit('new-user', msg.data);\n    } else if (msg.type === 'update-canvas') {\n        this._eventEmitter.emit('update-canvas', msg.data);\n    } else if (msg.type === 'server-down') {\n        this._eventEmitter.emit('server-down', msg.data);\n    }\n}\n\n/**\n * util function to generate url\n * @private\n * @param {String} protocol - http or ws\n * @param {String} endPoint - which endpoint to request\n * @returns {String} url - concatenated url\n */\nfunction makeUrl(protocol, endPoint) {\n    return `${protocol}://${this._options.host}:${\n        this._options.port}${endPoint}`;\n}\n\n/**\n * Class to comunicate with the drawr backend\n */\nexport default class DrawrClient {\n    /**\n    * @typedef {Object} User\n    * @property {String} name\n    */\n\n    /**\n    * creates a new server connection instance\n    * @param {User} user - user to connect to server\n    * @param {Object} options - websocket/http server host and port\n    */\n    constructor(user, options) {\n        this._user = user;\n        this._options = options;\n        this._eventEmitter = new EventEmitter();\n        this._wsClient = null;\n        this._pendingUpdates = [];\n        this._session = {};\n    }\n    /* Private methods */\n\n    /**\n    * @typedef {Object} SessionData\n    * @property {String} sessionId\n    * @property {Array} users\n    */\n\n    /**\n    * set session data\n    * @private\n    * @returns {Promise} p - successfull if websocket connects\n    */\n    _connectToSession() {\n        let p = new Promise((resolve, reject) => {\n            try {\n                this._wsClient = new WebSocket(makeUrl.call(\n                    this, 'ws', `/session/${this._session.id}/ws`\n                ));\n                this._wsClient.onopen = onWebSocketOpen.bind(this);\n                this._wsClient.onmessage = onWebSocketMessage.bind(this);\n                this._wsClient.onerror = onWebSocketError.bind(this);\n                this._wsClient.onclose = onWebSocketClose.bind(this);\n                resolve();\n            } catch(e) {\n                reject(e);\n            }\n        });\n        return p;\n    }\n\n    /* Public API */\n\n    /**\n    * add listener to server event\n    * @param {String} name - event name\n    * @param {Function} listener - function to be executed on event\n    * @param {Context} context - context (this value) to execute listener\n    * @returns {void}\n    */\n    addEventListener(name, listener, context) {\n        if (typeof name !== 'string') {\n            throw new TypeError('event name must be a string');\n        }\n        if (typeof listener !== 'function') {\n            throw new TypeError('listener must be a function');\n        }\n        this._eventEmitter.on(name, listener, context);\n    }\n\n    /**\n    * join an existing session via session id\n    * @param {String} sessionId - id of the session to join\n    * @returns {Promise} p - resolve/rejects after http request result\n    */\n    joinSession(sessionId) {\n        let url = makeUrl.call(this, 'http', `/session/${sessionId}`);\n        // let options = {};\n        let p = new Promise((resolve, reject) => {\n            fetch(url).then(response => {\n                if (response.status === 200) {\n                    return response.json();\n                } else {\n                    reject(response);\n                }\n            })\n            .then(body => {\n                this._session = body;\n                this._connectToSession()\n                    .then(resolve)\n                    .catch(reject);\n            })\n            .catch(reject);\n        });\n        return p;\n    }\n\n    /**\n    * creates a new session with given name\n    * @param {String} name - session name\n    * @returns {Promise} p - resolve/rejects after http request result\n    */\n    newSession(name = '') {\n        let url = makeUrl.call(this, 'http', `/session/new?name=${name}`);\n        // let options = {};\n        let p = new Promise((resolve, reject) => {\n            fetch(url).then(response => {\n                if (response.status === 200) {\n                    return response.json();\n                } else {\n                    reject(response);\n                }\n            })\n            .then(body => {\n                this._session = body;\n                this._connectToSession()\n                    .then(resolve(this.getSessionId()))\n                    .catch(reject);\n            })\n            .catch(reject);\n        });\n        return p;\n    }\n\n    /**\n    * get session ID from connected session\n    * @returns {String} sessionId\n    */\n    getSessionId() {\n        return this._session.id;\n    }\n\n    /**\n    * get connected users from session\n    * @returns {Array} usersList - array with all users connected to session\n    */\n    getUsersList() {\n        return this._session.users;\n    }\n\n    /**\n    * send canvas click updates to websocket connection\n    * @param {Array} clicks - new clicks to send\n    * @returns {void}\n    */\n    sendCanvasUpdate(clicks) {\n        if (\n            this._wsClient &&\n            this._wsClient.readyState === this._wsClient.OPEN\n        ) {\n            if (this._pendingUpdates.length > 0) {\n                let combinedClicks = this._pendingUpdates.pop().concat(clicks);\n                this._wsClient.send(\n                    JSON.stringify({\n                        type: 'update-canvas',\n                        data: {\n                            username: this._user.name,\n                            sessionId: '',\n                            canvasState: JSON.stringify(combinedClicks)\n                        }\n                    })\n                );\n            } else {\n                this._wsClient.send(\n                    JSON.stringify({\n                        type: 'update-canvas',\n                        data: {\n                            username: this._user.name,\n                            sessionId: '',\n                            canvasState: JSON.stringify(clicks)\n                        }\n                    })\n                );\n            }\n        } else {\n            this._pendingUpdates.unshift(clicks);\n        }\n    }\n}\n",
+    "static": true,
+    "longname": "lib/DrawrClient.js",
+    "access": null,
+    "description": null,
+    "lineNumber": 1
+  },
+  {
+    "__docId__": 54,
+    "kind": "function",
+    "name": "onWebSocketError",
+    "memberof": "lib/DrawrClient.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "lib/DrawrClient.js~onWebSocketError",
+    "access": "private",
+    "export": false,
+    "importPath": "drawr/lib/DrawrClient.js",
+    "importStyle": null,
+    "description": "error handling if websocket fails to connect",
+    "lineNumber": 20,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "Object"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "event",
+        "description": "websocket envent data"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 55,
+    "kind": "function",
+    "name": "onWebSocketOpen",
+    "memberof": "lib/DrawrClient.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "lib/DrawrClient.js~onWebSocketOpen",
+    "access": "private",
+    "export": false,
+    "importPath": "drawr/lib/DrawrClient.js",
+    "importStyle": null,
+    "description": "emit event when websocket connection is open",
+    "lineNumber": 31,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "Object"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "event",
+        "description": "websocket envent data"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 56,
+    "kind": "function",
+    "name": "onWebSocketClose",
+    "memberof": "lib/DrawrClient.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "lib/DrawrClient.js~onWebSocketClose",
+    "access": "private",
+    "export": false,
+    "importPath": "drawr/lib/DrawrClient.js",
+    "importStyle": null,
+    "description": "emit event when websocket connection is closed by the server",
+    "lineNumber": 42,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "Object"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "event",
+        "description": "websocket envent data"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 57,
+    "kind": "function",
+    "name": "onWebSocketMessage",
+    "memberof": "lib/DrawrClient.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "lib/DrawrClient.js~onWebSocketMessage",
+    "access": "private",
+    "export": false,
+    "importPath": "drawr/lib/DrawrClient.js",
+    "importStyle": null,
+    "description": "handle wedsocket messages from server",
+    "lineNumber": 54,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "Object"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "event",
+        "description": "websocket event data"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 58,
+    "kind": "function",
+    "name": "makeUrl",
+    "memberof": "lib/DrawrClient.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "lib/DrawrClient.js~makeUrl",
+    "access": "private",
+    "export": false,
+    "importPath": "drawr/lib/DrawrClient.js",
+    "importStyle": null,
+    "description": "util function to generate url",
+    "lineNumber": 72,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{String} url - concatenated url"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "String"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "protocol",
+        "description": "http or ws"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "String"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "endPoint",
+        "description": "which endpoint to request"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "String"
+      ],
+      "spread": false,
+      "description": "url - concatenated url"
+    }
+  },
+  {
+    "__docId__": 59,
+    "kind": "class",
+    "name": "DrawrClient",
+    "memberof": "lib/DrawrClient.js",
+    "static": true,
+    "longname": "lib/DrawrClient.js~DrawrClient",
+    "access": null,
+    "export": true,
+    "importPath": "drawr/lib/DrawrClient.js",
+    "importStyle": "DrawrClient",
+    "description": "Class to comunicate with the drawr backend",
+    "lineNumber": 80,
+    "interface": false
+  },
+  {
+    "__docId__": 60,
+    "kind": "typedef",
+    "name": "User",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "static": true,
+    "longname": "lib/DrawrClient.js~DrawrClient.User",
+    "access": null,
+    "description": "",
+    "properties": [
+      {
+        "nullable": null,
+        "types": [
+          "String"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "name",
+        "description": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "Object"
+      ],
+      "optional": false,
+      "name": "User"
+    }
+  },
+  {
+    "__docId__": 61,
+    "kind": "constructor",
+    "name": "constructor",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#constructor",
+    "access": null,
+    "description": "creates a new server connection instance",
+    "lineNumber": 91,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "User"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "user",
+        "description": "user to connect to server"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Object"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "options",
+        "description": "websocket/http server host and port"
+      }
+    ]
+  },
+  {
+    "__docId__": 62,
+    "kind": "member",
+    "name": "_user",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#_user",
+    "access": null,
+    "description": null,
+    "lineNumber": 92,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 63,
+    "kind": "member",
+    "name": "_options",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#_options",
+    "access": null,
+    "description": null,
+    "lineNumber": 93,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 64,
+    "kind": "member",
+    "name": "_eventEmitter",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#_eventEmitter",
+    "access": null,
+    "description": null,
+    "lineNumber": 94,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 65,
+    "kind": "member",
+    "name": "_wsClient",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#_wsClient",
+    "access": null,
+    "description": null,
+    "lineNumber": 95,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 66,
+    "kind": "member",
+    "name": "_pendingUpdates",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#_pendingUpdates",
+    "access": null,
+    "description": null,
+    "lineNumber": 96,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*[]"
+      ]
+    }
+  },
+  {
+    "__docId__": 67,
+    "kind": "member",
+    "name": "_session",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#_session",
+    "access": null,
+    "description": null,
+    "lineNumber": 97,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "{}"
+      ]
+    }
+  },
+  {
+    "__docId__": 68,
+    "kind": "typedef",
+    "name": "SessionData",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "static": true,
+    "longname": "lib/DrawrClient.js~DrawrClient.SessionData",
+    "access": null,
+    "description": "",
+    "properties": [
+      {
+        "nullable": null,
+        "types": [
+          "String"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "sessionId",
+        "description": ""
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Array"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "users",
+        "description": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "Object"
+      ],
+      "optional": false,
+      "name": "SessionData"
+    }
+  },
+  {
+    "__docId__": 69,
+    "kind": "method",
+    "name": "_connectToSession",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#_connectToSession",
+    "access": "private",
+    "description": "set session data",
+    "lineNumber": 112,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{Promise} p - successfull if websocket connects"
+      }
+    ],
+    "params": [],
+    "return": {
+      "nullable": null,
+      "types": [
+        "Promise"
+      ],
+      "spread": false,
+      "description": "p - successfull if websocket connects"
+    }
+  },
+  {
+    "__docId__": 70,
+    "kind": "member",
+    "name": "_wsClient",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#_wsClient",
+    "access": null,
+    "description": null,
+    "lineNumber": 115,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 71,
+    "kind": "method",
+    "name": "addEventListener",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#addEventListener",
+    "access": null,
+    "description": "add listener to server event",
+    "lineNumber": 139,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "String"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "name",
+        "description": "event name"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Function"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "listener",
+        "description": "function to be executed on event"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Context"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "context",
+        "description": "context (this value) to execute listener"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 72,
+    "kind": "method",
+    "name": "joinSession",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#joinSession",
+    "access": null,
+    "description": "join an existing session via session id",
+    "lineNumber": 154,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{Promise} p - resolve/rejects after http request result"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "String"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "sessionId",
+        "description": "id of the session to join"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "Promise"
+      ],
+      "spread": false,
+      "description": "p - resolve/rejects after http request result"
+    }
+  },
+  {
+    "__docId__": 73,
+    "kind": "member",
+    "name": "_session",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#_session",
+    "access": null,
+    "description": null,
+    "lineNumber": 166,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 74,
+    "kind": "method",
+    "name": "newSession",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#newSession",
+    "access": null,
+    "description": "creates a new session with given name",
+    "lineNumber": 181,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{Promise} p - resolve/rejects after http request result"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "String"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "name",
+        "description": "session name"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "Promise"
+      ],
+      "spread": false,
+      "description": "p - resolve/rejects after http request result"
+    }
+  },
+  {
+    "__docId__": 75,
+    "kind": "member",
+    "name": "_session",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#_session",
+    "access": null,
+    "description": null,
+    "lineNumber": 193,
+    "undocument": true,
+    "unknown": [
+      {
+        "tagName": "@_undocument",
+        "tagValue": ""
+      }
+    ],
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 76,
+    "kind": "method",
+    "name": "getSessionId",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#getSessionId",
+    "access": null,
+    "description": "get session ID from connected session",
+    "lineNumber": 207,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{String} sessionId"
+      }
+    ],
+    "params": [],
+    "return": {
+      "nullable": null,
+      "types": [
+        "String"
+      ],
+      "spread": false,
+      "description": "sessionId"
+    }
+  },
+  {
+    "__docId__": 77,
+    "kind": "method",
+    "name": "getUsersList",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#getUsersList",
+    "access": null,
+    "description": "get connected users from session",
+    "lineNumber": 215,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{Array} usersList - array with all users connected to session"
+      }
+    ],
+    "params": [],
+    "return": {
+      "nullable": null,
+      "types": [
+        "Array"
+      ],
+      "spread": false,
+      "description": "usersList - array with all users connected to session"
+    }
+  },
+  {
+    "__docId__": 78,
+    "kind": "method",
+    "name": "sendCanvasUpdate",
+    "memberof": "lib/DrawrClient.js~DrawrClient",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "lib/DrawrClient.js~DrawrClient#sendCanvasUpdate",
+    "access": null,
+    "description": "send canvas click updates to websocket connection",
+    "lineNumber": 224,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{void}"
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "Array"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "clicks",
+        "description": "new clicks to send"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "void"
+      ],
+      "spread": false,
+      "description": ""
+    }
+  },
+  {
+    "__docId__": 80,
+    "kind": "external",
+    "name": "Infinity",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Infinity",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Infinity",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 81,
+    "kind": "external",
+    "name": "NaN",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/NaN",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~NaN",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 82,
+    "kind": "external",
+    "name": "undefined",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/undefined",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~undefined",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 83,
+    "kind": "external",
+    "name": "null",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/null",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~null",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 84,
+    "kind": "external",
+    "name": "Object",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Object",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 85,
+    "kind": "external",
+    "name": "object",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~object",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 86,
+    "kind": "external",
+    "name": "Function",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Function",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 87,
+    "kind": "external",
+    "name": "function",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~function",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 88,
+    "kind": "external",
+    "name": "Boolean",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Boolean",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Boolean",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 89,
+    "kind": "external",
+    "name": "boolean",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Boolean",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~boolean",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 90,
+    "kind": "external",
+    "name": "Symbol",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Symbol",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 91,
+    "kind": "external",
+    "name": "Error",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Error",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 92,
+    "kind": "external",
+    "name": "EvalError",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/EvalError",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~EvalError",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 93,
+    "kind": "external",
+    "name": "InternalError",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/InternalError",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~InternalError",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 94,
+    "kind": "external",
+    "name": "RangeError",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RangeError",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~RangeError",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 95,
+    "kind": "external",
+    "name": "ReferenceError",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ReferenceError",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~ReferenceError",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 96,
+    "kind": "external",
+    "name": "SyntaxError",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SyntaxError",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~SyntaxError",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 97,
+    "kind": "external",
+    "name": "TypeError",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypeError",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~TypeError",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 98,
+    "kind": "external",
+    "name": "URIError",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/URIError",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~URIError",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 99,
+    "kind": "external",
+    "name": "Number",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Number",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 100,
+    "kind": "external",
+    "name": "number",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~number",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 101,
+    "kind": "external",
+    "name": "Date",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Date",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 102,
+    "kind": "external",
+    "name": "String",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~String",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 103,
+    "kind": "external",
+    "name": "string",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~string",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 104,
+    "kind": "external",
+    "name": "RegExp",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~RegExp",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 105,
+    "kind": "external",
+    "name": "Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 106,
+    "kind": "external",
+    "name": "Int8Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Int8Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Int8Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 107,
+    "kind": "external",
+    "name": "Uint8Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Uint8Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 108,
+    "kind": "external",
+    "name": "Uint8ClampedArray",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8ClampedArray",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Uint8ClampedArray",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 109,
+    "kind": "external",
+    "name": "Int16Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Int16Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Int16Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 110,
+    "kind": "external",
+    "name": "Uint16Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint16Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Uint16Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 111,
+    "kind": "external",
+    "name": "Int32Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Int32Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Int32Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 112,
+    "kind": "external",
+    "name": "Uint32Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint32Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Uint32Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 113,
+    "kind": "external",
+    "name": "Float32Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float32Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Float32Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 114,
+    "kind": "external",
+    "name": "Float64Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float64Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Float64Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 115,
+    "kind": "external",
+    "name": "Map",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Map",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 116,
+    "kind": "external",
+    "name": "Set",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Set",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 117,
+    "kind": "external",
+    "name": "WeakMap",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WeakMap",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~WeakMap",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 118,
+    "kind": "external",
+    "name": "WeakSet",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WeakSet",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~WeakSet",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 119,
+    "kind": "external",
+    "name": "ArrayBuffer",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~ArrayBuffer",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 120,
+    "kind": "external",
+    "name": "DataView",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~DataView",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 121,
+    "kind": "external",
+    "name": "JSON",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~JSON",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 122,
+    "kind": "external",
+    "name": "Promise",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Promise",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 123,
+    "kind": "external",
+    "name": "Generator",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Generator",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Generator",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 124,
+    "kind": "external",
+    "name": "GeneratorFunction",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/GeneratorFunction",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~GeneratorFunction",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 125,
+    "kind": "external",
+    "name": "Reflect",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Reflect",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Reflect",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 126,
+    "kind": "external",
+    "name": "Proxy",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Proxy",
+    "access": null,
+    "description": "",
+    "lineNumber": 193,
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 128,
+    "kind": "external",
+    "name": "CanvasRenderingContext2D",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D",
+    "memberof": "BuiltinExternal/WebAPIExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/WebAPIExternal.js~CanvasRenderingContext2D",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 129,
+    "kind": "external",
+    "name": "DocumentFragment",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/API/DocumentFragment",
+    "memberof": "BuiltinExternal/WebAPIExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/WebAPIExternal.js~DocumentFragment",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 130,
+    "kind": "external",
+    "name": "Element",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/API/Element",
+    "memberof": "BuiltinExternal/WebAPIExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/WebAPIExternal.js~Element",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 131,
+    "kind": "external",
+    "name": "Event",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/API/Event",
+    "memberof": "BuiltinExternal/WebAPIExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/WebAPIExternal.js~Event",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 132,
+    "kind": "external",
+    "name": "Node",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/API/Node",
+    "memberof": "BuiltinExternal/WebAPIExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/WebAPIExternal.js~Node",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 133,
+    "kind": "external",
+    "name": "NodeList",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/API/NodeList",
+    "memberof": "BuiltinExternal/WebAPIExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/WebAPIExternal.js~NodeList",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 134,
+    "kind": "external",
+    "name": "XMLHttpRequest",
+    "externalLink": "https://developer.mozilla.org/en/docs/Web/API/XMLHttpRequest",
+    "memberof": "BuiltinExternal/WebAPIExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/WebAPIExternal.js~XMLHttpRequest",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 135,
+    "kind": "external",
+    "name": "AudioContext",
+    "externalLink": "https://developer.mozilla.org/en/docs/Web/API/AudioContext",
+    "memberof": "BuiltinExternal/WebAPIExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/WebAPIExternal.js~AudioContext",
+    "access": null,
+    "description": "",
+    "lineNumber": 34,
+    "builtinExternal": true
+  }
+]

@@ -1,0 +1,17 @@
+{
+  "coverage": "100%",
+  "expectCount": 20,
+  "actualCount": 20,
+  "files": {
+    "lib/DrawrCanvas.js": {
+      "expectCount": 12,
+      "actualCount": 12,
+      "undocumentLines": []
+    },
+    "lib/DrawrClient.js": {
+      "expectCount": 8,
+      "actualCount": 8,
+      "undocumentLines": []
+    }
+  }
+}
