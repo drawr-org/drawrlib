@@ -18,13 +18,26 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
+/**
+ * @typedef {Object} DrawingTools
+ * @property {String} PEN - pen
+ * @property {String} ERASER - eraser
+ */
+
 var DRAWING_TOOLS = {
     PEN: 'pen',
     ERASER: 'eraser'
 };
 
+/**
+ * @typedef {Object} Options
+ * @property {String} color - stroke color
+ * @property {Number} width - stroke width
+ * @property {String} type - drawing tool
+ */
+
 var STANDARD_OPTIONS = {
-    colour: '#000000',
+    color: '#000000',
     width: 10,
     type: DRAWING_TOOLS.PEN
 };
@@ -121,7 +134,7 @@ var DrawrCanvas = function () {
     /**
      * creates a new canvas
      * @param {String} divId - div where canvas should be created
-     * @param {Object} options - styling options for the canvas
+     * @param {Options} options - styling options for the canvas
      * @returns {void}
      */
     function DrawrCanvas(divId, options) {
@@ -215,7 +228,7 @@ var DrawrCanvas = function () {
             }
             for (var i = this._lastDrawIndex; i < this._clicks.length; i++) {
                 this._context.beginPath();
-                this._context.strokeStyle = this._clicks[i].style.colour;
+                this._context.strokeStyle = this._clicks[i].style.color;
                 if (this._clicks[i].drag && i && !this._clicks[i].pathStart) {
                     if (this._clicks[i].remote) {
                         this._context.moveTo(this._clicks[i - 1].x * this._width, this._clicks[i - 1].y * this._height);
@@ -324,7 +337,7 @@ var DrawrCanvas = function () {
 
         /**
          * updates styling options
-         * @param {Object} options - new option to be set
+         * @param {Options} options - new option to be set
          * @returns {void}
          */
 
@@ -332,7 +345,7 @@ var DrawrCanvas = function () {
         key: 'updateOptions',
         value: function updateOptions(options) {
             if (options.type === DRAWING_TOOLS.ERASER) {
-                options.colour = '#FFFFFF';
+                options.color = '#FFFFFF';
             }
             _extends(this._stylingOptions, options);
         }
@@ -417,10 +430,7 @@ var DrawrCanvas = function () {
             return this._clicks.slice();
         }
 
-        /**
-         * @prop {String} PEN - pen-like drawing
-         * @prop {String} ERASER - eraser
-         */
+        /** @type {DrawingTools} */
 
     }], [{
         key: 'drawingTools',
