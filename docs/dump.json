@@ -3,7 +3,7 @@
     "__docId__": 0,
     "kind": "file",
     "name": "lib/DrawrCanvas.js",
-    "content": "'use strict';\n\nimport './../style.css';\nimport EventEmitter from 'eventemitter3';\n\nconst DRAWING_TOOLS = {\n    PEN: 'pen',\n    ERASER: 'eraser'\n};\n\nconst STANDARD_OPTIONS = {\n    colour: '#000000',\n    width: 10,\n    type: DRAWING_TOOLS.PEN\n};\n\n/**\n * listener to click on canvas\n * @private\n * @param {Object} e - event data\n * @returns {void}\n */\nfunction mousedownListener(e) {\n    let mouseX = e.pageX - this._canvasDiv.offsetLeft;\n    let mouseY = e.pageY - this._canvasDiv.offsetTop;\n\n    this._paint = true;\n    // click will start on next index\n    // save to be able to undo\n    this._clickStarts.push(this._lastDrawIndex + 1);\n    this._addClick(mouseX, mouseY, false);\n}\n\n/**\n * listener to move on canvas\n * @private\n * @param {Object} e - event data\n * @returns {void}\n */\nfunction mousemoveListener(e) {\n    let drawingAreaX = this._width;\n    let drawingAreaY = this._height;\n    let drawingAreaWidth = 10;\n\n    let mouseX = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) -\n        this._canvasDiv.offsetLeft;\n    let mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) -\n        this._canvasDiv.offsetTop;\n    if (mouseX < drawingAreaX && mouseY < drawingAreaY) {\n        if (mouseX > drawingAreaWidth && mouseY > 0) {\n            if (this._paint) {\n                this._addClick(mouseX, mouseY, true);\n                this._wrapAndEmitClicks();\n            }\n        }\n    } else {\n        if (this._paint) {\n            this._addClick(mouseX, mouseY, false);\n            this._wrapAndEmitClicks();\n        }\n    }\n    // Prevent the whole page from dragging if on mobile\n    e.preventDefault();\n}\n\n/**\n * listener to finishing draw on canvas\n * @private\n * @returns {void}\n */\nfunction mouseupListener() {\n    this._paint = false;\n    this._wrapAndEmitClicks();\n}\n\nfunction resizeListener() {\n    this._width = this._canvasDiv.clientWidth;\n    this._height = this._canvasDiv.clientHeight;\n    setTimeout(() => {\n        this._canvas.setAttribute('width', this._width - 10);\n        this._canvas.setAttribute('height', this._height - 10);\n        this._redraw(true);\n    }, 0);\n}\n\n/**\n * set click listeners on canvas\n * @private\n * @returns {void}\n */\nfunction setEventListeners() {\n    this._canvas.addEventListener(\n        'mousedown', mousedownListener.bind(this), false\n    );\n    this._canvas.addEventListener(\n        'mouseup', mouseupListener.bind(this), false\n    );\n    this._canvas.addEventListener(\n        'mousemove', mousemoveListener.bind(this), false\n    );\n    this._canvas.addEventListener(\n        'touchstart', mousedownListener.bind(this), false\n    );\n    this._canvas.addEventListener(\n        'touchmove', mousemoveListener.bind(this), false\n    );\n    this._canvas.addEventListener(\n        'touchend', mouseupListener.bind(this), false\n    );\n    window.addEventListener('resize', resizeListener.bind(this), false);\n}\n\n/**\n * Class to do rendering and get user inputs from drawr drawing solution\n */\nexport default class DrawrCanvas {\n    /**\n     * creates a new canvas\n     * @param {String} divId - div where canvas should be created\n     * @param {Object} options - styling options for the canvas\n     * @returns {void}\n     */\n    constructor(divId, options) {\n        this._stylingOptions = Object.assign({}, STANDARD_OPTIONS, options);\n        this._canvasDiv = document.getElementById(divId);\n        this._canvas = document.createElement('canvas');\n        this._canvas.setAttribute('class', 'DrawrCanvas');\n        // hack so that elements can be fully loaded to get attributes\n        this._width = this._canvasDiv.clientWidth;\n        this._height = this._canvasDiv.clientHeight;\n        setTimeout(() => {\n            this._canvas.setAttribute('width', this._width);\n            this._canvas.setAttribute('height', this._height);\n        }, 0);\n        this._canvasDiv.appendChild(this._canvas);\n        this._paint = false;\n        setEventListeners.apply(this);\n        this._context = this._canvas.getContext('2d');\n        this._eventEmitter = new EventEmitter();\n        // save original context for transformations\n        this._context.save();\n        this._clicks = [];\n        this._zoom = 0;\n        this._scaleX = 1;\n        this._scaleY = 1;\n        this._lastDrawIndex = 0;\n        this._clickStarts = [];\n        this._redoClicks = [];\n        this._lastEmittedDrag = 0;\n    }\n\n    /**\n     * add and draw changes to canvas\n     * @private\n     * @param {Number} x - x coordinate\n     * @param {Number} y - y coordinate\n     * @param {Boolean} dragging - if point should be connected to last one\n     * @returns {void}\n     */\n    _addClick(x, y, dragging) {\n        this._clicks.push({\n            x: x/this._width,\n            y: y/this._height,\n            drag: dragging,\n            style: Object.assign({}, this._stylingOptions),\n            remote: false\n        });\n        this._redraw();\n    }\n\n    /**\n     * get index of last click made by local user\n     * @private\n     * @param {Number} index - index from where to start looking\n     * @return {Number} index - last local index from given click\n     */\n    _getLastLocalClick(index) {\n        for (let i = index; i >= 0; i--) {\n            if (!this._clicks[i].remote) {\n                return i;\n            }\n        }\n    }\n\n    /**\n     * add clicks coming from server\n     * @private\n     * @param {Boolean} hard - if true, clears and rescale canvas, and redraws all clicks\n     * @returns {void}\n     */\n    _redraw(hard = false) {\n        this._context.lineJoin = 'round';\n        if (hard) {\n            this._clearCanvas();\n        }\n        for (let i = this._lastDrawIndex; i < this._clicks.length; i++) {\n            this._context.beginPath();\n            this._context.strokeStyle = this._clicks[i].style.colour;\n            if (this._clicks[i].drag && i && !this._clicks[i].pathStart) {\n                if (this._clicks[i].remote) {\n                    this._context.moveTo(\n                        this._clicks[i-1].x * this._width,\n                        this._clicks[i-1].y * this._height\n                    );\n                } else {\n                    // remote clicks might be rendered while user is dragging\n                    // if this is the case, point should be connected to last local click, not a remote one\n                    let lastLocalClick = this._getLastLocalClick(i-1);\n                    if (lastLocalClick) {\n                        this._context.moveTo(\n                            this._clicks[lastLocalClick].x * this._width,\n                            this._clicks[lastLocalClick].y * this._height\n                        );\n                    }\n                }\n            } else {\n                this._context.moveTo(\n                    (this._clicks[i].x * this._width) - 1,\n                    this._clicks[i].y * this._height\n                );\n            }\n            this._context.lineTo(\n                this._clicks[i].x * this._width,\n                this._clicks[i].y * this._height\n            );\n            this._context.closePath();\n            this._context.lineWidth = this._clicks[i].style.width;\n            this._context.stroke();\n        }\n        this._lastDrawIndex =\n            this._clicks.length > 0 ? (this._clicks.length - 1) : 0;\n    }\n\n    _wrapAndEmitClicks() {\n        let clicks = [];\n        let totalLength = this._clicks.length - 1;\n        // add last click\n        let clickCp = Object.assign(\n            {}, this._clicks[totalLength], {remote: true});\n        clicks.push(clickCp);\n        if (clicks[0].drag) {\n            // add all dragging clicks not emitted so far\n            let lastLocalClick = this._getLastLocalClick(totalLength - 1);\n            while (lastLocalClick > this._lastEmittedDrag &&\n                this._clicks[lastLocalClick].drag && lastLocalClick\n            ) {\n                this._lastEmittedDrag = lastLocalClick;\n                let clickCp = Object.assign(\n                    {}, this._clicks[lastLocalClick], {remote: true}\n                );\n                clicks.unshift(clickCp);\n                lastLocalClick = this._getLastLocalClick(lastLocalClick - 1);\n            }\n        }\n        clicks[0].pathStart = true;\n        this._eventEmitter.emit('new-click', clicks);\n    }\n\n    /**\n     * clear all clicks from canvas\n     * @returns {void}\n     */\n    _clearCanvas() {\n        // restore original context to clear full canvas\n        this._context.restore();\n        this._context.clearRect(\n            0, 0, this._width, this._height\n        );\n        // save it again for transformations\n        this._context.save();\n\n        this._context.scale(this._scaleX, this._scaleY);\n        this._lastDrawIndex = 0;\n    }\n\n    /* PUBLIC API */\n\n    /**\n     * resets to initial started\n     * @return {void}\n     */\n    reset() {\n        this._clicks = [];\n        this._zoom = 0;\n        this._scaleX = 1;\n        this._scaleY = 1;\n        this._clearCanvas();\n    }\n\n    /**\n     * add image to canvas at given coordinates\n     * @param {Object} img - image to be draw\n     * @param {Number} x - x coordinate\n     * @param {Number} y - y coordinate\n     * @returns {void}\n     */\n    addImage(img, x, y) {\n        this._context.drawImage(\n            img, 0, 0, 100, 100, x, y, this._scaleX, this._scaleY\n        );\n    }\n\n    /**\n     * add clicks coming from server\n     * @param {Object} clicks - clicks coming from server\n     * @returns {void}\n     */\n    remoteUpdate(clicks) {\n        this._clickStarts.push(this._lastDrawIndex + 1);\n        this._clicks = this._clicks.concat(clicks);\n        this._redraw();\n    }\n\n    /**\n     * updates styling options\n     * @param {Object} options - new option to be set\n     * @returns {void}\n     */\n    updateOptions(options) {\n        if (options.type === DRAWING_TOOLS.ERASER) {\n            options.colour = '#FFFFFF';\n        }\n        Object.assign(this._stylingOptions, options);\n    }\n\n    /**\n     * set new zoom level and calls redraw\n     * @param {Number} zoom - new zoom level\n     * @returns {void}\n     */\n    setZoom(zoom) {\n        if (isNaN(zoom) || zoom < 0) {\n            throw new TypeError(\n                'zoom must be an integer equal or bigger than zero'\n            );\n        }\n        this._zoom = zoom;\n        this._scaleX = 1 - this._zoom*0.1;\n        this._scaleY = 1 - this._zoom*0.1;\n        this._redraw(true);\n    }\n\n    /**\n     * add listener to canvas event\n     * @param {String} name - event name\n     * @param {Function} listener - function to be executed on event\n     * @param {Context} context - context (this value) to execute listener\n     * @returns {void}\n     */\n    addEventListener(name, listener, context) {\n        if (typeof name !== 'string') {\n            throw new TypeError('event name must be a string');\n        }\n        if (typeof listener !== 'function') {\n            throw new TypeError('listener must be a function');\n        }\n        this._eventEmitter.on(name, listener, context);\n    }\n\n    /**\n     * undo last click\n     * @returns {void}\n     */\n    undoLastClick() {\n        if (this._clickStarts.length > 0) {\n            let initialIndex = this._clickStarts.pop();\n            if (initialIndex) {\n                this._redoClicks.push(this._clicks.splice(\n                    initialIndex, this._clicks.length - initialIndex\n                ));\n                this._redraw(true);\n            }\n        }\n    }\n\n    /**\n     * redo last click\n     * @returns {void}\n     */\n    redoLastClick() {\n        if (this._redoClicks.length > 0) {\n            this._clicks = this._clicks.concat(this._redoClicks.pop());\n            this._redraw(true);\n        }\n    }\n\n    /**\n     * gets all clicks drawn on canvas\n     * @return {Array} clicks - all clicks on canvas instance\n     */\n    getAllClicks() {\n        return this._clicks.slice();\n    }\n\n    /**\n     * @prop {String} PEN - pen-like drawing\n     * @prop {String} ERASER - eraser\n     */\n    static get drawingTools() {\n        return DRAWING_TOOLS;\n    }\n\n}\n",
+    "content": "'use strict';\n\nimport './../style.css';\nimport EventEmitter from 'eventemitter3';\n\n/**\n * @typedef {Object} DrawingTools\n * @property {String} PEN - pen\n * @property {String} ERASER - eraser\n */\n\nconst DRAWING_TOOLS = {\n    PEN: 'pen',\n    ERASER: 'eraser'\n};\n\n/**\n * @typedef {Object} Options\n * @property {String} color - stroke color\n * @property {Number} width - stroke width\n * @property {String} type - drawing tool\n */\n\nconst STANDARD_OPTIONS = {\n    color: '#000000',\n    width: 10,\n    type: DRAWING_TOOLS.PEN\n};\n\n/**\n * listener to click on canvas\n * @private\n * @param {Object} e - event data\n * @returns {void}\n */\nfunction mousedownListener(e) {\n    let mouseX = e.pageX - this._canvasDiv.offsetLeft;\n    let mouseY = e.pageY - this._canvasDiv.offsetTop;\n\n    this._paint = true;\n    // click will start on next index\n    // save to be able to undo\n    this._clickStarts.push(this._lastDrawIndex + 1);\n    this._addClick(mouseX, mouseY, false);\n}\n\n/**\n * listener to move on canvas\n * @private\n * @param {Object} e - event data\n * @returns {void}\n */\nfunction mousemoveListener(e) {\n    let drawingAreaX = this._width;\n    let drawingAreaY = this._height;\n    let drawingAreaWidth = 10;\n\n    let mouseX = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) -\n        this._canvasDiv.offsetLeft;\n    let mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) -\n        this._canvasDiv.offsetTop;\n    if (mouseX < drawingAreaX && mouseY < drawingAreaY) {\n        if (mouseX > drawingAreaWidth && mouseY > 0) {\n            if (this._paint) {\n                this._addClick(mouseX, mouseY, true);\n                this._wrapAndEmitClicks();\n            }\n        }\n    } else {\n        if (this._paint) {\n            this._addClick(mouseX, mouseY, false);\n            this._wrapAndEmitClicks();\n        }\n    }\n    // Prevent the whole page from dragging if on mobile\n    e.preventDefault();\n}\n\n/**\n * listener to finishing draw on canvas\n * @private\n * @returns {void}\n */\nfunction mouseupListener() {\n    this._paint = false;\n    this._wrapAndEmitClicks();\n}\n\nfunction resizeListener() {\n    this._width = this._canvasDiv.clientWidth;\n    this._height = this._canvasDiv.clientHeight;\n    setTimeout(() => {\n        this._canvas.setAttribute('width', this._width - 10);\n        this._canvas.setAttribute('height', this._height - 10);\n        this._redraw(true);\n    }, 0);\n}\n\n/**\n * set click listeners on canvas\n * @private\n * @returns {void}\n */\nfunction setEventListeners() {\n    this._canvas.addEventListener(\n        'mousedown', mousedownListener.bind(this), false\n    );\n    this._canvas.addEventListener(\n        'mouseup', mouseupListener.bind(this), false\n    );\n    this._canvas.addEventListener(\n        'mousemove', mousemoveListener.bind(this), false\n    );\n    this._canvas.addEventListener(\n        'touchstart', mousedownListener.bind(this), false\n    );\n    this._canvas.addEventListener(\n        'touchmove', mousemoveListener.bind(this), false\n    );\n    this._canvas.addEventListener(\n        'touchend', mouseupListener.bind(this), false\n    );\n    window.addEventListener('resize', resizeListener.bind(this), false);\n}\n\n/**\n * Class to do rendering and get user inputs from drawr drawing solution\n */\nexport default class DrawrCanvas {\n    /**\n     * creates a new canvas\n     * @param {String} divId - div where canvas should be created\n     * @param {Object} options - styling options for the canvas\n     * @returns {void}\n     */\n    constructor(divId, options) {\n        this._stylingOptions = Object.assign({}, STANDARD_OPTIONS, options);\n        this._canvasDiv = document.getElementById(divId);\n        this._canvas = document.createElement('canvas');\n        this._canvas.setAttribute('class', 'DrawrCanvas');\n        // hack so that elements can be fully loaded to get attributes\n        this._width = this._canvasDiv.clientWidth;\n        this._height = this._canvasDiv.clientHeight;\n        setTimeout(() => {\n            this._canvas.setAttribute('width', this._width);\n            this._canvas.setAttribute('height', this._height);\n        }, 0);\n        this._canvasDiv.appendChild(this._canvas);\n        this._paint = false;\n        setEventListeners.apply(this);\n        this._context = this._canvas.getContext('2d');\n        this._eventEmitter = new EventEmitter();\n        // save original context for transformations\n        this._context.save();\n        this._clicks = [];\n        this._zoom = 0;\n        this._scaleX = 1;\n        this._scaleY = 1;\n        this._lastDrawIndex = 0;\n        this._clickStarts = [];\n        this._redoClicks = [];\n        this._lastEmittedDrag = 0;\n    }\n\n    /**\n     * add and draw changes to canvas\n     * @private\n     * @param {Number} x - x coordinate\n     * @param {Number} y - y coordinate\n     * @param {Boolean} dragging - if point should be connected to last one\n     * @returns {void}\n     */\n    _addClick(x, y, dragging) {\n        this._clicks.push({\n            x: x/this._width,\n            y: y/this._height,\n            drag: dragging,\n            style: Object.assign({}, this._stylingOptions),\n            remote: false\n        });\n        this._redraw();\n    }\n\n    /**\n     * get index of last click made by local user\n     * @private\n     * @param {Number} index - index from where to start looking\n     * @return {Number} index - last local index from given click\n     */\n    _getLastLocalClick(index) {\n        for (let i = index; i >= 0; i--) {\n            if (!this._clicks[i].remote) {\n                return i;\n            }\n        }\n    }\n\n    /**\n     * add clicks coming from server\n     * @private\n     * @param {Boolean} hard - if true, clears and rescale canvas, and redraws all clicks\n     * @returns {void}\n     */\n    _redraw(hard = false) {\n        this._context.lineJoin = 'round';\n        if (hard) {\n            this._clearCanvas();\n        }\n        for (let i = this._lastDrawIndex; i < this._clicks.length; i++) {\n            this._context.beginPath();\n            this._context.strokeStyle = this._clicks[i].style.color;\n            if (this._clicks[i].drag && i && !this._clicks[i].pathStart) {\n                if (this._clicks[i].remote) {\n                    this._context.moveTo(\n                        this._clicks[i-1].x * this._width,\n                        this._clicks[i-1].y * this._height\n                    );\n                } else {\n                    // remote clicks might be rendered while user is dragging\n                    // if this is the case, point should be connected to last local click, not a remote one\n                    let lastLocalClick = this._getLastLocalClick(i-1);\n                    if (lastLocalClick) {\n                        this._context.moveTo(\n                            this._clicks[lastLocalClick].x * this._width,\n                            this._clicks[lastLocalClick].y * this._height\n                        );\n                    }\n                }\n            } else {\n                this._context.moveTo(\n                    (this._clicks[i].x * this._width) - 1,\n                    this._clicks[i].y * this._height\n                );\n            }\n            this._context.lineTo(\n                this._clicks[i].x * this._width,\n                this._clicks[i].y * this._height\n            );\n            this._context.closePath();\n            this._context.lineWidth = this._clicks[i].style.width;\n            this._context.stroke();\n        }\n        this._lastDrawIndex =\n            this._clicks.length > 0 ? (this._clicks.length - 1) : 0;\n    }\n\n    _wrapAndEmitClicks() {\n        let clicks = [];\n        let totalLength = this._clicks.length - 1;\n        // add last click\n        let clickCp = Object.assign(\n            {}, this._clicks[totalLength], {remote: true});\n        clicks.push(clickCp);\n        if (clicks[0].drag) {\n            // add all dragging clicks not emitted so far\n            let lastLocalClick = this._getLastLocalClick(totalLength - 1);\n            while (lastLocalClick > this._lastEmittedDrag &&\n                this._clicks[lastLocalClick].drag && lastLocalClick\n            ) {\n                this._lastEmittedDrag = lastLocalClick;\n                let clickCp = Object.assign(\n                    {}, this._clicks[lastLocalClick], {remote: true}\n                );\n                clicks.unshift(clickCp);\n                lastLocalClick = this._getLastLocalClick(lastLocalClick - 1);\n            }\n        }\n        clicks[0].pathStart = true;\n        this._eventEmitter.emit('new-click', clicks);\n    }\n\n    /**\n     * clear all clicks from canvas\n     * @returns {void}\n     */\n    _clearCanvas() {\n        // restore original context to clear full canvas\n        this._context.restore();\n        this._context.clearRect(\n            0, 0, this._width, this._height\n        );\n        // save it again for transformations\n        this._context.save();\n\n        this._context.scale(this._scaleX, this._scaleY);\n        this._lastDrawIndex = 0;\n    }\n\n    /* PUBLIC API */\n\n    /**\n     * resets to initial started\n     * @return {void}\n     */\n    reset() {\n        this._clicks = [];\n        this._zoom = 0;\n        this._scaleX = 1;\n        this._scaleY = 1;\n        this._clearCanvas();\n    }\n\n    /**\n     * add image to canvas at given coordinates\n     * @param {Object} img - image to be draw\n     * @param {Number} x - x coordinate\n     * @param {Number} y - y coordinate\n     * @returns {void}\n     */\n    addImage(img, x, y) {\n        this._context.drawImage(\n            img, 0, 0, 100, 100, x, y, this._scaleX, this._scaleY\n        );\n    }\n\n    /**\n     * add clicks coming from server\n     * @param {Object} clicks - clicks coming from server\n     * @returns {void}\n     */\n    remoteUpdate(clicks) {\n        this._clickStarts.push(this._lastDrawIndex + 1);\n        this._clicks = this._clicks.concat(clicks);\n        this._redraw();\n    }\n\n    /**\n     * updates styling options\n     * @param {Options} options - new option to be set\n     * @returns {void}\n     */\n    updateOptions(options) {\n        if (options.type === DRAWING_TOOLS.ERASER) {\n            options.color = '#FFFFFF';\n        }\n        Object.assign(this._stylingOptions, options);\n    }\n\n    /**\n     * set new zoom level and calls redraw\n     * @param {Number} zoom - new zoom level\n     * @returns {void}\n     */\n    setZoom(zoom) {\n        if (isNaN(zoom) || zoom < 0) {\n            throw new TypeError(\n                'zoom must be an integer equal or bigger than zero'\n            );\n        }\n        this._zoom = zoom;\n        this._scaleX = 1 - this._zoom*0.1;\n        this._scaleY = 1 - this._zoom*0.1;\n        this._redraw(true);\n    }\n\n    /**\n     * add listener to canvas event\n     * @param {String} name - event name\n     * @param {Function} listener - function to be executed on event\n     * @param {Context} context - context (this value) to execute listener\n     * @returns {void}\n     */\n    addEventListener(name, listener, context) {\n        if (typeof name !== 'string') {\n            throw new TypeError('event name must be a string');\n        }\n        if (typeof listener !== 'function') {\n            throw new TypeError('listener must be a function');\n        }\n        this._eventEmitter.on(name, listener, context);\n    }\n\n    /**\n     * undo last click\n     * @returns {void}\n     */\n    undoLastClick() {\n        if (this._clickStarts.length > 0) {\n            let initialIndex = this._clickStarts.pop();\n            if (initialIndex) {\n                this._redoClicks.push(this._clicks.splice(\n                    initialIndex, this._clicks.length - initialIndex\n                ));\n                this._redraw(true);\n            }\n        }\n    }\n\n    /**\n     * redo last click\n     * @returns {void}\n     */\n    redoLastClick() {\n        if (this._redoClicks.length > 0) {\n            this._clicks = this._clicks.concat(this._redoClicks.pop());\n            this._redraw(true);\n        }\n    }\n\n    /**\n     * gets all clicks drawn on canvas\n     * @return {Array} clicks - all clicks on canvas instance\n     */\n    getAllClicks() {\n        return this._clicks.slice();\n    }\n\n    /** @type {DrawingTools} */\n    static get drawingTools() {\n        return DRAWING_TOOLS;\n    }\n\n}\n",
     "static": true,
     "longname": "lib/DrawrCanvas.js",
     "access": null,
@@ -12,54 +12,92 @@
   },
   {
     "__docId__": 1,
-    "kind": "variable",
-    "name": "DRAWING_TOOLS",
+    "kind": "typedef",
+    "name": "DrawingTools",
     "memberof": "lib/DrawrCanvas.js",
     "static": true,
-    "longname": "lib/DrawrCanvas.js~DRAWING_TOOLS",
+    "longname": "lib/DrawrCanvas.js~DrawingTools",
     "access": null,
-    "export": false,
-    "importPath": "drawr/lib/DrawrCanvas.js",
-    "importStyle": null,
-    "description": null,
-    "lineNumber": 6,
-    "undocument": true,
-    "unknown": [
+    "description": "",
+    "lineNumber": 12,
+    "properties": [
       {
-        "tagName": "@_undocument",
-        "tagValue": ""
+        "nullable": null,
+        "types": [
+          "String"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "PEN",
+        "description": "pen"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "String"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "ERASER",
+        "description": "eraser"
       }
     ],
     "type": {
       "types": [
-        "{\"PEN\": string, \"ERASER\": string}"
-      ]
+        "Object"
+      ],
+      "optional": false,
+      "name": "DrawingTools"
     }
   },
   {
     "__docId__": 2,
-    "kind": "variable",
-    "name": "STANDARD_OPTIONS",
+    "kind": "typedef",
+    "name": "Options",
     "memberof": "lib/DrawrCanvas.js",
     "static": true,
-    "longname": "lib/DrawrCanvas.js~STANDARD_OPTIONS",
+    "longname": "lib/DrawrCanvas.js~Options",
     "access": null,
-    "export": false,
-    "importPath": "drawr/lib/DrawrCanvas.js",
-    "importStyle": null,
-    "description": null,
-    "lineNumber": 11,
-    "undocument": true,
-    "unknown": [
+    "description": "",
+    "lineNumber": 24,
+    "properties": [
       {
-        "tagName": "@_undocument",
-        "tagValue": ""
+        "nullable": null,
+        "types": [
+          "String"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "color",
+        "description": "stroke color"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Number"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "width",
+        "description": "stroke width"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "String"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "type",
+        "description": "drawing tool"
       }
     ],
     "type": {
       "types": [
-        "{\"colour\": string, \"width\": number, \"type\": *}"
-      ]
+        "Object"
+      ],
+      "optional": false,
+      "name": "Options"
     }
   },
   {
@@ -76,7 +114,7 @@
     "importPath": "drawr/lib/DrawrCanvas.js",
     "importStyle": null,
     "description": "listener to click on canvas",
-    "lineNumber": 23,
+    "lineNumber": 36,
     "unknown": [
       {
         "tagName": "@returns",
@@ -118,7 +156,7 @@
     "importPath": "drawr/lib/DrawrCanvas.js",
     "importStyle": null,
     "description": "listener to move on canvas",
-    "lineNumber": 40,
+    "lineNumber": 53,
     "unknown": [
       {
         "tagName": "@returns",
@@ -160,7 +198,7 @@
     "importPath": "drawr/lib/DrawrCanvas.js",
     "importStyle": null,
     "description": "listener to finishing draw on canvas",
-    "lineNumber": 71,
+    "lineNumber": 84,
     "unknown": [
       {
         "tagName": "@returns",
@@ -191,7 +229,7 @@
     "importPath": "drawr/lib/DrawrCanvas.js",
     "importStyle": null,
     "description": null,
-    "lineNumber": 76,
+    "lineNumber": 89,
     "undocument": true,
     "unknown": [
       {
@@ -215,7 +253,7 @@
     "importPath": "drawr/lib/DrawrCanvas.js",
     "importStyle": null,
     "description": "set click listeners on canvas",
-    "lineNumber": 91,
+    "lineNumber": 104,
     "unknown": [
       {
         "tagName": "@returns",
@@ -244,7 +282,7 @@
     "importPath": "drawr/lib/DrawrCanvas.js",
     "importStyle": "DrawrCanvas",
     "description": "Class to do rendering and get user inputs from drawr drawing solution",
-    "lineNumber": 116,
+    "lineNumber": 129,
     "interface": false
   },
   {
@@ -258,7 +296,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#constructor",
     "access": null,
     "description": "creates a new canvas",
-    "lineNumber": 123,
+    "lineNumber": 136,
     "unknown": [
       {
         "tagName": "@returns",
@@ -305,7 +343,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_stylingOptions",
     "access": null,
     "description": null,
-    "lineNumber": 124,
+    "lineNumber": 137,
     "undocument": true,
     "unknown": [
       {
@@ -328,7 +366,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_canvasDiv",
     "access": null,
     "description": null,
-    "lineNumber": 125,
+    "lineNumber": 138,
     "undocument": true,
     "unknown": [
       {
@@ -351,7 +389,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_canvas",
     "access": null,
     "description": null,
-    "lineNumber": 126,
+    "lineNumber": 139,
     "undocument": true,
     "unknown": [
       {
@@ -374,7 +412,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_width",
     "access": null,
     "description": null,
-    "lineNumber": 129,
+    "lineNumber": 142,
     "undocument": true,
     "unknown": [
       {
@@ -397,7 +435,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_height",
     "access": null,
     "description": null,
-    "lineNumber": 130,
+    "lineNumber": 143,
     "undocument": true,
     "unknown": [
       {
@@ -420,7 +458,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_paint",
     "access": null,
     "description": null,
-    "lineNumber": 136,
+    "lineNumber": 149,
     "undocument": true,
     "unknown": [
       {
@@ -443,7 +481,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_context",
     "access": null,
     "description": null,
-    "lineNumber": 138,
+    "lineNumber": 151,
     "undocument": true,
     "unknown": [
       {
@@ -466,7 +504,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_eventEmitter",
     "access": null,
     "description": null,
-    "lineNumber": 139,
+    "lineNumber": 152,
     "undocument": true,
     "unknown": [
       {
@@ -489,7 +527,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_clicks",
     "access": null,
     "description": null,
-    "lineNumber": 142,
+    "lineNumber": 155,
     "undocument": true,
     "unknown": [
       {
@@ -512,7 +550,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_zoom",
     "access": null,
     "description": null,
-    "lineNumber": 143,
+    "lineNumber": 156,
     "undocument": true,
     "unknown": [
       {
@@ -535,7 +573,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_scaleX",
     "access": null,
     "description": null,
-    "lineNumber": 144,
+    "lineNumber": 157,
     "undocument": true,
     "unknown": [
       {
@@ -558,7 +596,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_scaleY",
     "access": null,
     "description": null,
-    "lineNumber": 145,
+    "lineNumber": 158,
     "undocument": true,
     "unknown": [
       {
@@ -581,7 +619,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_lastDrawIndex",
     "access": null,
     "description": null,
-    "lineNumber": 146,
+    "lineNumber": 159,
     "undocument": true,
     "unknown": [
       {
@@ -604,7 +642,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_clickStarts",
     "access": null,
     "description": null,
-    "lineNumber": 147,
+    "lineNumber": 160,
     "undocument": true,
     "unknown": [
       {
@@ -627,7 +665,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_redoClicks",
     "access": null,
     "description": null,
-    "lineNumber": 148,
+    "lineNumber": 161,
     "undocument": true,
     "unknown": [
       {
@@ -650,7 +688,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_lastEmittedDrag",
     "access": null,
     "description": null,
-    "lineNumber": 149,
+    "lineNumber": 162,
     "undocument": true,
     "unknown": [
       {
@@ -675,7 +713,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_addClick",
     "access": "private",
     "description": "add and draw changes to canvas",
-    "lineNumber": 160,
+    "lineNumber": 173,
     "unknown": [
       {
         "tagName": "@returns",
@@ -734,7 +772,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_getLastLocalClick",
     "access": "private",
     "description": "get index of last click made by local user",
-    "lineNumber": 177,
+    "lineNumber": 190,
     "params": [
       {
         "nullable": null,
@@ -767,7 +805,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_redraw",
     "access": "private",
     "description": "add clicks coming from server",
-    "lineNumber": 191,
+    "lineNumber": 204,
     "unknown": [
       {
         "tagName": "@returns",
@@ -804,7 +842,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_lastDrawIndex",
     "access": null,
     "description": null,
-    "lineNumber": 230,
+    "lineNumber": 243,
     "undocument": true,
     "unknown": [
       {
@@ -829,7 +867,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_wrapAndEmitClicks",
     "access": null,
     "description": null,
-    "lineNumber": 234,
+    "lineNumber": 247,
     "undocument": true,
     "unknown": [
       {
@@ -848,7 +886,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_lastEmittedDrag",
     "access": null,
     "description": null,
-    "lineNumber": 247,
+    "lineNumber": 260,
     "undocument": true,
     "unknown": [
       {
@@ -873,7 +911,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_clearCanvas",
     "access": null,
     "description": "clear all clicks from canvas",
-    "lineNumber": 263,
+    "lineNumber": 276,
     "unknown": [
       {
         "tagName": "@returns",
@@ -899,7 +937,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_lastDrawIndex",
     "access": null,
     "description": null,
-    "lineNumber": 273,
+    "lineNumber": 286,
     "undocument": true,
     "unknown": [
       {
@@ -924,7 +962,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#reset",
     "access": null,
     "description": "resets to initial started",
-    "lineNumber": 282,
+    "lineNumber": 295,
     "params": [],
     "return": {
       "nullable": null,
@@ -944,7 +982,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_clicks",
     "access": null,
     "description": null,
-    "lineNumber": 283,
+    "lineNumber": 296,
     "undocument": true,
     "unknown": [
       {
@@ -967,7 +1005,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_zoom",
     "access": null,
     "description": null,
-    "lineNumber": 284,
+    "lineNumber": 297,
     "undocument": true,
     "unknown": [
       {
@@ -990,7 +1028,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_scaleX",
     "access": null,
     "description": null,
-    "lineNumber": 285,
+    "lineNumber": 298,
     "undocument": true,
     "unknown": [
       {
@@ -1013,7 +1051,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_scaleY",
     "access": null,
     "description": null,
-    "lineNumber": 286,
+    "lineNumber": 299,
     "undocument": true,
     "unknown": [
       {
@@ -1038,7 +1076,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#addImage",
     "access": null,
     "description": "add image to canvas at given coordinates",
-    "lineNumber": 297,
+    "lineNumber": 310,
     "unknown": [
       {
         "tagName": "@returns",
@@ -1097,7 +1135,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#remoteUpdate",
     "access": null,
     "description": "add clicks coming from server",
-    "lineNumber": 308,
+    "lineNumber": 321,
     "unknown": [
       {
         "tagName": "@returns",
@@ -1134,7 +1172,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_clicks",
     "access": null,
     "description": null,
-    "lineNumber": 310,
+    "lineNumber": 323,
     "undocument": true,
     "unknown": [
       {
@@ -1159,7 +1197,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#updateOptions",
     "access": null,
     "description": "updates styling options",
-    "lineNumber": 319,
+    "lineNumber": 332,
     "unknown": [
       {
         "tagName": "@returns",
@@ -1170,7 +1208,7 @@
       {
         "nullable": null,
         "types": [
-          "Object"
+          "Options"
         ],
         "spread": false,
         "optional": false,
@@ -1198,7 +1236,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#setZoom",
     "access": null,
     "description": "set new zoom level and calls redraw",
-    "lineNumber": 331,
+    "lineNumber": 344,
     "unknown": [
       {
         "tagName": "@returns",
@@ -1235,7 +1273,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_zoom",
     "access": null,
     "description": null,
-    "lineNumber": 337,
+    "lineNumber": 350,
     "undocument": true,
     "unknown": [
       {
@@ -1258,7 +1296,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_scaleX",
     "access": null,
     "description": null,
-    "lineNumber": 338,
+    "lineNumber": 351,
     "undocument": true,
     "unknown": [
       {
@@ -1281,7 +1319,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_scaleY",
     "access": null,
     "description": null,
-    "lineNumber": 339,
+    "lineNumber": 352,
     "undocument": true,
     "unknown": [
       {
@@ -1306,7 +1344,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#addEventListener",
     "access": null,
     "description": "add listener to canvas event",
-    "lineNumber": 350,
+    "lineNumber": 363,
     "unknown": [
       {
         "tagName": "@returns",
@@ -1365,7 +1403,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#undoLastClick",
     "access": null,
     "description": "undo last click",
-    "lineNumber": 364,
+    "lineNumber": 377,
     "unknown": [
       {
         "tagName": "@returns",
@@ -1393,7 +1431,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#redoLastClick",
     "access": null,
     "description": "redo last click",
-    "lineNumber": 380,
+    "lineNumber": 393,
     "unknown": [
       {
         "tagName": "@returns",
@@ -1419,7 +1457,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#_clicks",
     "access": null,
     "description": null,
-    "lineNumber": 382,
+    "lineNumber": 395,
     "undocument": true,
     "unknown": [
       {
@@ -1444,7 +1482,7 @@
     "longname": "lib/DrawrCanvas.js~DrawrCanvas#getAllClicks",
     "access": null,
     "description": "gets all clicks drawn on canvas",
-    "lineNumber": 391,
+    "lineNumber": 404,
     "params": [],
     "return": {
       "nullable": null,
@@ -1465,22 +1503,15 @@
     "static": true,
     "longname": "lib/DrawrCanvas.js~DrawrCanvas.drawingTools",
     "access": null,
-    "description": "",
-    "lineNumber": 399,
-    "unknown": [
-      {
-        "tagName": "@prop",
-        "tagValue": "{String} PEN - pen-like drawing"
-      },
-      {
-        "tagName": "@prop",
-        "tagValue": "{String} ERASER - eraser"
-      }
-    ],
+    "description": null,
+    "lineNumber": 409,
     "type": {
+      "nullable": null,
       "types": [
-        "*"
-      ]
+        "DrawingTools"
+      ],
+      "spread": false,
+      "description": null
     }
   },
   {

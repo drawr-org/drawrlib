@@ -348,6 +348,12 @@ window.esdocSearchIndex = [
     "file"
   ],
   [
+    "lib/drawrcanvas.js~drawingtools",
+    "typedef/index.html#static-typedef-DrawingTools",
+    "lib/DrawrCanvas.js~DrawingTools",
+    "typedef"
+  ],
+  [
     "lib/drawrcanvas.js~drawrcanvas#addeventlistener",
     "class/lib/DrawrCanvas.js~DrawrCanvas.html#instance-method-addEventListener",
     "lib/DrawrCanvas.js~DrawrCanvas#addEventListener",
@@ -412,6 +418,12 @@ window.esdocSearchIndex = [
     "class/lib/DrawrCanvas.js~DrawrCanvas.html#static-get-drawingTools",
     "lib/DrawrCanvas.js~DrawrCanvas.drawingTools",
     "member"
+  ],
+  [
+    "lib/drawrcanvas.js~options",
+    "typedef/index.html#static-typedef-Options",
+    "lib/DrawrCanvas.js~Options",
+    "typedef"
   ],
   [
     "lib/drawrclient.js",

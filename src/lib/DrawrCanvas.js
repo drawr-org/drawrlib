@@ -3,13 +3,26 @@
 import './../style.css';
 import EventEmitter from 'eventemitter3';
 
+/**
+ * @typedef {Object} DrawingTools
+ * @property {String} PEN - pen
+ * @property {String} ERASER - eraser
+ */
+
 const DRAWING_TOOLS = {
     PEN: 'pen',
     ERASER: 'eraser'
 };
 
+/**
+ * @typedef {Object} Options
+ * @property {String} color - stroke color
+ * @property {Number} width - stroke width
+ * @property {String} type - drawing tool
+ */
+
 const STANDARD_OPTIONS = {
-    colour: '#000000',
+    color: '#000000',
     width: 10,
     type: DRAWING_TOOLS.PEN
 };
@@ -195,7 +208,7 @@ export default class DrawrCanvas {
         }
         for (let i = this._lastDrawIndex; i < this._clicks.length; i++) {
             this._context.beginPath();
-            this._context.strokeStyle = this._clicks[i].style.colour;
+            this._context.strokeStyle = this._clicks[i].style.color;
             if (this._clicks[i].drag && i && !this._clicks[i].pathStart) {
                 if (this._clicks[i].remote) {
                     this._context.moveTo(
@@ -313,12 +326,12 @@ export default class DrawrCanvas {
 
     /**
      * updates styling options
-     * @param {Object} options - new option to be set
+     * @param {Options} options - new option to be set
      * @returns {void}
      */
     updateOptions(options) {
         if (options.type === DRAWING_TOOLS.ERASER) {
-            options.colour = '#FFFFFF';
+            options.color = '#FFFFFF';
         }
         Object.assign(this._stylingOptions, options);
     }
@@ -392,10 +405,7 @@ export default class DrawrCanvas {
         return this._clicks.slice();
     }
 
-    /**
-     * @prop {String} PEN - pen-like drawing
-     * @prop {String} ERASER - eraser
-     */
+    /** @type {DrawingTools} */
     static get drawingTools() {
         return DRAWING_TOOLS;
     }
