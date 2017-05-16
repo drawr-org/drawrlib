@@ -39,13 +39,13 @@ describe('DrawrCanvas', function() {
         // array used: [localClick, remoteClick, localClick]
         // add local click
         canvas._addClick(100, 100, false);
-        canvas.remoteUpdate({
+        canvas.remoteUpdate([{
             x: 200,
             y: 200,
             drag: false,
             style: canvas._stylingOptions,
             remote: true
-        });
+        }]);
         // add another local click
         canvas._addClick(150, 150, false);
         expect(canvas._getLastLocalClick(1)).to.be.equal(0);

@@ -89,6 +89,10 @@ module.exports = function(config) {
                             path.resolve('src/test/'),
                             path.resolve('src/index.js')
                         ]
+                    },
+                    {
+                        test:/.css$/,
+                        loader: 'css-loader'
                     }
                 ]
             }

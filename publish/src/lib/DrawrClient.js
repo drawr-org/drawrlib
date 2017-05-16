@@ -18,9 +18,7 @@ var _eventemitter = require('eventemitter3');
 
 var _eventemitter2 = _interopRequireDefault(_eventemitter);
 
-var _xhr = require('xhr');
-
-var _xhr2 = _interopRequireDefault(_xhr);
+require('whatwg-fetch');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -164,21 +162,19 @@ var DrawrClient = function () {
         value: function joinSession(sessionId) {
             var _this2 = this;
 
-            var options = {
-                url: makeUrl.call(this, 'http', '/session/' + sessionId)
-            };
+            var url = makeUrl.call(this, 'http', '/session/' + sessionId);
+            // let options = {};
             var p = new Promise(function (resolve, reject) {
-                (0, _xhr2.default)(options, function (err, response, body) {
-                    if (err) {
-                        reject(response);
-                    }
-                    if (response.statusCode === 200) {
-                        _this2._session = JSON.parse(body);
-                        _this2._connectToSession().then(resolve).catch(reject);
+                fetch(url).then(function (response) {
+                    if (response.status === 200) {
+                        return response.json();
                     } else {
                         reject(response);
                     }
-                });
+                }).then(function (body) {
+                    _this2._session = body;
+                    _this2._connectToSession().then(resolve).catch(reject);
+                }).catch(reject);
             });
             return p;
         }
@@ -196,21 +192,19 @@ var DrawrClient = function () {
 
             var name = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
 
-            var options = {
-                url: makeUrl.call(this, 'http', '/session/new?name=' + name)
-            };
+            var url = makeUrl.call(this, 'http', '/session/new?name=' + name);
+            // let options = {};
             var p = new Promise(function (resolve, reject) {
-                (0, _xhr2.default)(options, function (err, response, body) {
-                    if (err) {
-                        reject(response);
-                    }
-                    if (response.statusCode === 200) {
-                        _this3._session = JSON.parse(body);
-                        _this3._connectToSession().then(resolve(_this3.getSessionId())).catch(reject);
+                fetch(url).then(function (response) {
+                    if (response.status === 200) {
+                        return response.json();
                     } else {
                         reject(response);
                     }
-                });
+                }).then(function (body) {
+                    _this3._session = body;
+                    _this3._connectToSession().then(resolve(_this3.getSessionId())).catch(reject);
+                }).catch(reject);
             });
             return p;
         }

@@ -12,14 +12,14 @@ if (argv.minified) {
 }
 
 let entry;
-if (argv.modular) {
+if (argv.unified) {
     entry = {
-        DrawrCanvas: './src/lib/DrawrCanvas.js',
-        DrawrClient: './src/lib/DrawrClient.js'
+        drawr: './src/index.js'
     };
 } else {
     entry = {
-        drawr: './src/index.js'
+        DrawrCanvas: './src/lib/DrawrCanvas.js',
+        DrawrClient: './src/lib/DrawrClient.js'
     };
 }
 
@@ -31,7 +31,8 @@ module.exports = {
     },
     module: {
         loaders: [
-            {test: /\.js$/, exclude: /node_modules/, loader: 'babel-loader'}
+            {test: /\.js$/, exclude: /node_modules/, loader: 'babel-loader'},
+            {test: /\.css$/, loaders: ['style-loader', 'css-loader']},
         ]
     },
     plugins: plugins

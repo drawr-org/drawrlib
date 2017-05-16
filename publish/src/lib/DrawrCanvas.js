@@ -8,6 +8,8 @@ var _extends = Object.assign || function (target) { for (var i = 1; i < argument
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
+require('./../style.css');
+
 var _eventemitter = require('eventemitter3');
 
 var _eventemitter2 = _interopRequireDefault(_eventemitter);
@@ -41,7 +43,7 @@ function mousedownListener(e) {
     this._paint = true;
     // click will start on next index
     // save to be able to undo
-    this._clickStarts.push(this._lastDraw + 1);
+    this._clickStarts.push(this._lastDrawIndex + 1);
     this._addClick(mouseX, mouseY, false);
 }
 
@@ -145,7 +147,7 @@ var DrawrCanvas = function () {
         this._zoom = 0;
         this._scaleX = 1;
         this._scaleY = 1;
-        this._lastDraw = 0;
+        this._lastDrawIndex = 0;
         this._clickStarts = [];
         this._redoClicks = [];
     }
@@ -206,7 +208,7 @@ var DrawrCanvas = function () {
             if (hard) {
                 this._clearCanvas();
             }
-            for (var i = this._lastDraw; i < this._clicks.length; i++) {
+            for (var i = this._lastDrawIndex; i < this._clicks.length; i++) {
                 this._context.beginPath();
                 this._context.strokeStyle = this._clicks[i].style.colour;
                 if (this._clicks[i].drag && i && !this._clicks[i].pathStart) {
@@ -228,7 +230,7 @@ var DrawrCanvas = function () {
                 this._context.lineWidth = this._clicks[i].style.width;
                 this._context.stroke();
             }
-            this._lastDraw = this._clicks.length > 0 ? this._clicks.length - 1 : 0;
+            this._lastDrawIndex = this._clicks.length > 0 ? this._clicks.length - 1 : 0;
         }
     }, {
         key: '_wrapAndEmitClicks',
@@ -237,12 +239,16 @@ var DrawrCanvas = function () {
             var totalLength = this._clicks.length - 1;
             // add last click
             var clickCp = _extends({}, this._clicks[totalLength], { remote: true });
+            clickCp.x = clickCp.x / this._width;
+            clickCp.y = clickCp.y / this._height;
             clicks.push(clickCp);
             if (clicks[0].drag) {
                 // add all dragging clicks
                 var lastLocalClick = this._getLastLocalClick(totalLength - 1);
                 while (this._clicks[lastLocalClick].drag && lastLocalClick) {
                     var _clickCp = _extends({}, this._clicks[lastLocalClick], { remote: true });
+                    _clickCp.x = _clickCp.x / this._width;
+                    _clickCp.y = _clickCp.y / this._height;
                     clicks.unshift(_clickCp);
                     lastLocalClick = this._getLastLocalClick(lastLocalClick - 1);
                 }
@@ -266,7 +272,7 @@ var DrawrCanvas = function () {
             this._context.save();
 
             this._context.scale(this._scaleX, this._scaleY);
-            this._lastDraw = 0;
+            this._lastDrawIndex = 0;
         }
 
         /* PUBLIC API */
@@ -309,7 +315,15 @@ var DrawrCanvas = function () {
     }, {
         key: 'remoteUpdate',
         value: function remoteUpdate(clicks) {
-            this._clickStarts.push(this._lastDraw + 1);
+            var _this2 = this;
+
+            this._clickStarts.push(this._lastDrawIndex + 1);
+            clicks.forEach(function (click) {
+                return _extends(click, {
+                    x: click.x * _this2._width,
+                    y: click.y * _this2._height
+                });
+            });
             this._clicks = this._clicks.concat(clicks);
             this._redraw();
         }

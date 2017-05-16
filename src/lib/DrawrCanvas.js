@@ -1,5 +1,6 @@
 'use strict';
 
+import './../style.css';
 import EventEmitter from 'eventemitter3';
 
 const DRAWING_TOOLS = {
@@ -27,7 +28,7 @@ function mousedownListener(e) {
     this._paint = true;
     // click will start on next index
     // save to be able to undo
-    this._clickStarts.push(this._lastDraw + 1);
+    this._clickStarts.push(this._lastDrawIndex + 1);
     this._addClick(mouseX, mouseY, false);
 }
 
@@ -140,7 +141,7 @@ export default class DrawrCanvas {
         this._zoom = 0;
         this._scaleX = 1;
         this._scaleY = 1;
-        this._lastDraw = 0;
+        this._lastDrawIndex = 0;
         this._clickStarts = [];
         this._redoClicks = [];
     }
@@ -189,7 +190,7 @@ export default class DrawrCanvas {
         if (hard) {
             this._clearCanvas();
         }
-        for (let i = this._lastDraw; i < this._clicks.length; i++) {
+        for (let i = this._lastDrawIndex; i < this._clicks.length; i++) {
             this._context.beginPath();
             this._context.strokeStyle = this._clicks[i].style.colour;
             if (this._clicks[i].drag && i && !this._clicks[i].pathStart) {
@@ -214,14 +215,18 @@ export default class DrawrCanvas {
             this._context.lineWidth = this._clicks[i].style.width;
             this._context.stroke();
         }
-        this._lastDraw = this._clicks.length > 0 ? this._clicks.length - 1 : 0;
+        this._lastDrawIndex =
+            this._clicks.length > 0 ? (this._clicks.length - 1) : 0;
     }
 
     _wrapAndEmitClicks() {
         let clicks = [];
         let totalLength = this._clicks.length - 1;
         // add last click
-        let clickCp = Object.assign({}, this._clicks[totalLength], {remote: true});
+        let clickCp = Object.assign(
+            {}, this._clicks[totalLength], {remote: true});
+        clickCp.x = clickCp.x/this._width;
+        clickCp.y = clickCp.y/this._height;
         clicks.push(clickCp);
         if (clicks[0].drag) {
             // add all dragging clicks
@@ -230,6 +235,8 @@ export default class DrawrCanvas {
                 let clickCp = Object.assign(
                     {}, this._clicks[lastLocalClick], {remote: true}
                 );
+                clickCp.x = clickCp.x/this._width;
+                clickCp.y = clickCp.y/this._height;
                 clicks.unshift(clickCp);
                 lastLocalClick = this._getLastLocalClick(lastLocalClick - 1);
             }
@@ -252,7 +259,7 @@ export default class DrawrCanvas {
         this._context.save();
 
         this._context.scale(this._scaleX, this._scaleY);
-        this._lastDraw = 0;
+        this._lastDrawIndex = 0;
     }
 
     /* PUBLIC API */
@@ -288,7 +295,11 @@ export default class DrawrCanvas {
      * @returns {void}
      */
     remoteUpdate(clicks) {
-        this._clickStarts.push(this._lastDraw + 1);
+        this._clickStarts.push(this._lastDrawIndex + 1);
+        clicks.forEach(click => Object.assign(click, {
+            x: click.x * this._width,
+            y: click.y * this._height
+        }));
         this._clicks = this._clicks.concat(clicks);
         this._redraw();
     }

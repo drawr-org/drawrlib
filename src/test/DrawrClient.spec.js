@@ -1,14 +1,14 @@
 import {DrawrClient} from './../index.js';
 
-describe.skip('DrawrClient', function() {
+describe('DrawrClient', function() {
     let client;
 
     it('should create server instance', function() {
         client = new DrawrClient({
             name: 'pedro',
         }, {
-            host: 'etsag.de',
-            port: '8881'
+            host: 'localhost',
+            port: '3000'
         });
         expect(client).to.be.an.instanceOf(DrawrClient);
     });
@@ -33,11 +33,10 @@ describe.skip('DrawrClient', function() {
         let client2 = new DrawrClient({
             name: 'lukas',
         }, {
-            host: 'etsag.de',
-            port: '8881'
+            host: 'localhost',
+            port: '3000'
         });
         client2.joinSession(id).then(() => {
-            // expect()
             done();
         });
     });

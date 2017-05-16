@@ -21,6 +21,5 @@ This guide should give a developer all information to start contributing to the 
 * `npm run commit-test` - check code style and syntax, runs unit tests and builds library
 * `npm run export` - exports library to `dist/drawr.js` and `dist/drawr.min.js`
 * `npm start`
-    * `--examples` - starts examples server on `/example/**/index.html`
     * `--test` - starts unit tests server
 * `npm test` - runs unit tests

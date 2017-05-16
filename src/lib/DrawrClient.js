@@ -9,7 +9,7 @@
 */
 
 import EventEmitter from 'eventemitter3';
-import xhr from 'xhr';
+import 'whatwg-fetch';
 
 /**
  * error handling if websocket fails to connect
@@ -147,23 +147,23 @@ export default class DrawrClient {
     * @returns {Promise} p - resolve/rejects after http request result
     */
     joinSession(sessionId) {
-        let options = {
-            url: makeUrl.call(this, 'http', `/session/${sessionId}`)
-        };
+        let url = makeUrl.call(this, 'http', `/session/${sessionId}`);
+        // let options = {};
         let p = new Promise((resolve, reject) => {
-            xhr(options, (err, response, body) => {
-                if (err) {
-                    reject(response);
-                }
-                if (response.statusCode === 200) {
-                    this._session = JSON.parse(body);
-                    this._connectToSession()
-                    .then(resolve)
-                    .catch(reject);
+            fetch(url).then(response => {
+                if (response.status === 200) {
+                    return response.json();
                 } else {
                     reject(response);
                 }
-            });
+            })
+            .then(body => {
+                this._session = body;
+                this._connectToSession()
+                    .then(resolve)
+                    .catch(reject);
+            })
+            .catch(reject);
         });
         return p;
     }
@@ -174,23 +174,23 @@ export default class DrawrClient {
     * @returns {Promise} p - resolve/rejects after http request result
     */
     newSession(name = '') {
-        let options = {
-            url: makeUrl.call(this, 'http', `/session/new?name=${name}`)
-        };
+        let url = makeUrl.call(this, 'http', `/session/new?name=${name}`);
+        // let options = {};
         let p = new Promise((resolve, reject) => {
-            xhr(options, (err, response, body) => {
-                if (err) {
-                    reject(response);
-                }
-                if (response.statusCode === 200) {
-                    this._session = JSON.parse(body);
-                    this._connectToSession()
-                    .then(resolve(this.getSessionId()))
-                    .catch(reject);
+            fetch(url).then(response => {
+                if (response.status === 200) {
+                    return response.json();
                 } else {
                     reject(response);
                 }
-            });
+            })
+            .then(body => {
+                this._session = body;
+                this._connectToSession()
+                    .then(resolve(this.getSessionId()))
+                    .catch(reject);
+            })
+            .catch(reject);
         });
         return p;
     }
