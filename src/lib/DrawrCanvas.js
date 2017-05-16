@@ -130,7 +130,7 @@ export default class DrawrCanvas {
     /**
      * creates a new canvas
      * @param {String} divId - div where canvas should be created
-     * @param {Object} options - styling options for the canvas
+     * @param {Options} options - styling options for the canvas
      * @returns {void}
      */
     constructor(divId, options) {
