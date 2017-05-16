@@ -27,19 +27,23 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 /**
  * error handling if websocket fails to connect
  * @private
+ * @param {Object} event - websocket envent data
  * @returns {void}
  */
-function onWebSocketError() {
+function onWebSocketError(event) {
     console.log('error connecting to ws server');
+    this._eventEmitter.emit('websocket-error', event.reason);
 }
 
 /**
  * emit event when websocket connection is open
  * @private
+ * @param {Object} event - websocket envent data
  * @returns {void}
  */
-function onWebSocketOpen() {
+function onWebSocketOpen(event) {
     console.log('connected to websocket server');
+    this._eventEmitter.emit('websocket-open', event.reason);
 }
 
 /**
