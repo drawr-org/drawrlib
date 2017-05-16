@@ -82,6 +82,16 @@ function mouseupListener() {
     this._wrapAndEmitClicks();
 }
 
+function resizeListener() {
+    this._width = this._canvasDiv.clientWidth;
+    this._height = this._canvasDiv.clientHeight;
+    setTimeout(() => {
+        this._canvas.setAttribute('width', this._width - 10);
+        this._canvas.setAttribute('height', this._height - 10);
+        this._redraw(true);
+    }, 0);
+}
+
 /**
  * set click listeners on canvas
  * @private
@@ -106,6 +116,7 @@ function setEventListeners() {
     this._canvas.addEventListener(
         'touchend', mouseupListener.bind(this), false
     );
+    window.addEventListener('resize', resizeListener.bind(this), false);
 }
 
 /**
@@ -124,9 +135,9 @@ export default class DrawrCanvas {
         this._canvas = document.createElement('canvas');
         this._canvas.setAttribute('class', 'DrawrCanvas');
         // hack so that elements can be fully loaded to get attributes
+        this._width = this._canvasDiv.clientWidth;
+        this._height = this._canvasDiv.clientHeight;
         setTimeout(() => {
-            this._width = this._canvasDiv.clientWidth;
-            this._height = this._canvasDiv.clientHeight;
             this._canvas.setAttribute('width', this._width);
             this._canvas.setAttribute('height', this._height);
         }, 0);
@@ -156,8 +167,8 @@ export default class DrawrCanvas {
      */
     _addClick(x, y, dragging) {
         this._clicks.push({
-            x: x/this._scaleX,
-            y: y/this._scaleY,
+            x: x/this._width,
+            y: y/this._height,
             drag: dragging,
             style: Object.assign({}, this._stylingOptions),
             remote: false
@@ -195,22 +206,31 @@ export default class DrawrCanvas {
             this._context.strokeStyle = this._clicks[i].style.colour;
             if (this._clicks[i].drag && i && !this._clicks[i].pathStart) {
                 if (this._clicks[i].remote) {
-                    this._context.moveTo(this._clicks[i-1].x, this._clicks[i-1].y);
+                    this._context.moveTo(
+                        this._clicks[i-1].x * this._width,
+                        this._clicks[i-1].y * this._height
+                    );
                 } else {
                     // remote clicks might be rendered while user is dragging
                     // if this is the case, point should be connected to last local click, not a remote one
                     let lastLocalClick = this._getLastLocalClick(i-1);
                     if (lastLocalClick) {
                         this._context.moveTo(
-                            this._clicks[lastLocalClick].x,
-                            this._clicks[lastLocalClick].y
+                            this._clicks[lastLocalClick].x * this._width,
+                            this._clicks[lastLocalClick].y * this._height
                         );
                     }
                 }
             } else {
-                this._context.moveTo(this._clicks[i].x - 1, this._clicks[i].y);
+                this._context.moveTo(
+                    (this._clicks[i].x * this._width) - 1,
+                    this._clicks[i].y * this._height
+                );
             }
-            this._context.lineTo(this._clicks[i].x, this._clicks[i].y);
+            this._context.lineTo(
+                this._clicks[i].x * this._width,
+                this._clicks[i].y * this._height
+            );
             this._context.closePath();
             this._context.lineWidth = this._clicks[i].style.width;
             this._context.stroke();
@@ -225,8 +245,8 @@ export default class DrawrCanvas {
         // add last click
         let clickCp = Object.assign(
             {}, this._clicks[totalLength], {remote: true});
-        clickCp.x = clickCp.x/this._width;
-        clickCp.y = clickCp.y/this._height;
+        // clickCp.x = clickCp.x/this._width;
+        // clickCp.y = clickCp.y/this._height;
         clicks.push(clickCp);
         if (clicks[0].drag) {
             // add all dragging clicks
@@ -235,8 +255,8 @@ export default class DrawrCanvas {
                 let clickCp = Object.assign(
                     {}, this._clicks[lastLocalClick], {remote: true}
                 );
-                clickCp.x = clickCp.x/this._width;
-                clickCp.y = clickCp.y/this._height;
+                // clickCp.x = clickCp.x/this._width;
+                // clickCp.y = clickCp.y/this._height;
                 clicks.unshift(clickCp);
                 lastLocalClick = this._getLastLocalClick(lastLocalClick - 1);
             }
@@ -297,8 +317,8 @@ export default class DrawrCanvas {
     remoteUpdate(clicks) {
         this._clickStarts.push(this._lastDrawIndex + 1);
         clicks.forEach(click => Object.assign(click, {
-            x: click.x * this._width,
-            y: click.y * this._height
+            // x: click.x * this._width,
+            // y: click.y * this._height
         }));
         this._clicks = this._clicks.concat(clicks);
         this._redraw();

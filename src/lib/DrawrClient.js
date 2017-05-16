@@ -32,6 +32,7 @@ function onWebSocketOpen() {
 /**
  * emit event when websocket connection is closed by the server
  * @private
+ * @param {Object} event - websocket envent data
  * @returns {void}
  */
 function onWebSocketClose(event) {

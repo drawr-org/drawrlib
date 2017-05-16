@@ -43,6 +43,18 @@ function onWebSocketOpen() {
 }
 
 /**
+ * emit event when websocket connection is closed by the server
+ * @private
+ * @param {Object} event - websocket envent data
+ * @returns {void}
+ */
+function onWebSocketClose(event) {
+    console.log('websocket server sent close:', event.reason);
+    this._wsClient.close(1000, 'client closed');
+    // TODO: clean up
+}
+
+/**
  * handle wedsocket messages from server
  * @private
  * @param {Object} event - websocket event data
@@ -121,6 +133,7 @@ var DrawrClient = function () {
                     _this._wsClient.onopen = onWebSocketOpen.bind(_this);
                     _this._wsClient.onmessage = onWebSocketMessage.bind(_this);
                     _this._wsClient.onerror = onWebSocketError.bind(_this);
+                    _this._wsClient.onclose = onWebSocketClose.bind(_this);
                     resolve();
                 } catch (e) {
                     reject(e);

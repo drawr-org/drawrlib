@@ -95,6 +95,18 @@ function mouseupListener() {
     this._wrapAndEmitClicks();
 }
 
+function resizeListener() {
+    var _this = this;
+
+    this._width = this._canvasDiv.clientWidth;
+    this._height = this._canvasDiv.clientHeight;
+    setTimeout(function () {
+        _this._canvas.setAttribute('width', _this._width - 10);
+        _this._canvas.setAttribute('height', _this._height - 10);
+        _this._redraw(true);
+    }, 0);
+}
+
 /**
  * set click listeners on canvas
  * @private
@@ -107,6 +119,7 @@ function setEventListeners() {
     this._canvas.addEventListener('touchstart', mousedownListener.bind(this), false);
     this._canvas.addEventListener('touchmove', mousemoveListener.bind(this), false);
     this._canvas.addEventListener('touchend', mouseupListener.bind(this), false);
+    window.addEventListener('resize', resizeListener.bind(this), false);
 }
 
 /**
@@ -121,7 +134,7 @@ var DrawrCanvas = function () {
      * @returns {void}
      */
     function DrawrCanvas(divId, options) {
-        var _this = this;
+        var _this2 = this;
 
         _classCallCheck(this, DrawrCanvas);
 
@@ -130,11 +143,11 @@ var DrawrCanvas = function () {
         this._canvas = document.createElement('canvas');
         this._canvas.setAttribute('class', 'DrawrCanvas');
         // hack so that elements can be fully loaded to get attributes
+        this._width = this._canvasDiv.clientWidth;
+        this._height = this._canvasDiv.clientHeight;
         setTimeout(function () {
-            _this._width = _this._canvasDiv.clientWidth;
-            _this._height = _this._canvasDiv.clientHeight;
-            _this._canvas.setAttribute('width', _this._width);
-            _this._canvas.setAttribute('height', _this._height);
+            _this2._canvas.setAttribute('width', _this2._width);
+            _this2._canvas.setAttribute('height', _this2._height);
         }, 0);
         this._canvasDiv.appendChild(this._canvas);
         this._paint = false;
@@ -166,8 +179,8 @@ var DrawrCanvas = function () {
         key: '_addClick',
         value: function _addClick(x, y, dragging) {
             this._clicks.push({
-                x: x / this._scaleX,
-                y: y / this._scaleY,
+                x: x / this._width,
+                y: y / this._height,
                 drag: dragging,
                 style: _extends({}, this._stylingOptions),
                 remote: false
@@ -213,19 +226,19 @@ var DrawrCanvas = function () {
                 this._context.strokeStyle = this._clicks[i].style.colour;
                 if (this._clicks[i].drag && i && !this._clicks[i].pathStart) {
                     if (this._clicks[i].remote) {
-                        this._context.moveTo(this._clicks[i - 1].x, this._clicks[i - 1].y);
+                        this._context.moveTo(this._clicks[i - 1].x * this._width, this._clicks[i - 1].y * this._height);
                     } else {
                         // remote clicks might be rendered while user is dragging
                         // if this is the case, point should be connected to last local click, not a remote one
                         var lastLocalClick = this._getLastLocalClick(i - 1);
                         if (lastLocalClick) {
-                            this._context.moveTo(this._clicks[lastLocalClick].x, this._clicks[lastLocalClick].y);
+                            this._context.moveTo(this._clicks[lastLocalClick].x * this._width, this._clicks[lastLocalClick].y * this._height);
                         }
                     }
                 } else {
-                    this._context.moveTo(this._clicks[i].x - 1, this._clicks[i].y);
+                    this._context.moveTo(this._clicks[i].x * this._width - 1, this._clicks[i].y * this._height);
                 }
-                this._context.lineTo(this._clicks[i].x, this._clicks[i].y);
+                this._context.lineTo(this._clicks[i].x * this._width, this._clicks[i].y * this._height);
                 this._context.closePath();
                 this._context.lineWidth = this._clicks[i].style.width;
                 this._context.stroke();
@@ -239,16 +252,16 @@ var DrawrCanvas = function () {
             var totalLength = this._clicks.length - 1;
             // add last click
             var clickCp = _extends({}, this._clicks[totalLength], { remote: true });
-            clickCp.x = clickCp.x / this._width;
-            clickCp.y = clickCp.y / this._height;
+            // clickCp.x = clickCp.x/this._width;
+            // clickCp.y = clickCp.y/this._height;
             clicks.push(clickCp);
             if (clicks[0].drag) {
                 // add all dragging clicks
                 var lastLocalClick = this._getLastLocalClick(totalLength - 1);
                 while (this._clicks[lastLocalClick].drag && lastLocalClick) {
                     var _clickCp = _extends({}, this._clicks[lastLocalClick], { remote: true });
-                    _clickCp.x = _clickCp.x / this._width;
-                    _clickCp.y = _clickCp.y / this._height;
+                    // clickCp.x = clickCp.x/this._width;
+                    // clickCp.y = clickCp.y/this._height;
                     clicks.unshift(_clickCp);
                     lastLocalClick = this._getLastLocalClick(lastLocalClick - 1);
                 }
@@ -315,13 +328,11 @@ var DrawrCanvas = function () {
     }, {
         key: 'remoteUpdate',
         value: function remoteUpdate(clicks) {
-            var _this2 = this;
-
             this._clickStarts.push(this._lastDrawIndex + 1);
             clicks.forEach(function (click) {
                 return _extends(click, {
-                    x: click.x * _this2._width,
-                    y: click.y * _this2._height
+                    // x: click.x * this._width,
+                    // y: click.y * this._height
                 });
             });
             this._clicks = this._clicks.concat(clicks);
