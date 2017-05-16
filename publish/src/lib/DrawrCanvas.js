@@ -36,7 +36,6 @@ var STANDARD_OPTIONS = {
  * @returns {void}
  */
 function mousedownListener(e) {
-    this._timeDragging = window.performance.now();
     var mouseX = e.pageX - this._canvasDiv.offsetLeft;
     var mouseY = e.pageY - this._canvasDiv.offsetTop;
 
@@ -64,21 +63,13 @@ function mousemoveListener(e) {
         if (mouseX > drawingAreaWidth && mouseY > 0) {
             if (this._paint) {
                 this._addClick(mouseX, mouseY, true);
-                var t = window.performance.now();
-                if (t - this._timeDragging > 2000) {
-                    this._wrapAndEmitClicks();
-                    this._timeDragging = t;
-                }
+                this._wrapAndEmitClicks();
             }
         }
     } else {
         if (this._paint) {
             this._addClick(mouseX, mouseY, false);
-            var _t = window.performance.now();
-            if (_t - this._timeDragging > 2000) {
-                this._wrapAndEmitClicks();
-                this._timeDragging = _t;
-            }
+            this._wrapAndEmitClicks();
         }
     }
     // Prevent the whole page from dragging if on mobile
@@ -163,6 +154,7 @@ var DrawrCanvas = function () {
         this._lastDrawIndex = 0;
         this._clickStarts = [];
         this._redoClicks = [];
+        this._lastEmittedDrag = 0;
     }
 
     /**
@@ -252,16 +244,13 @@ var DrawrCanvas = function () {
             var totalLength = this._clicks.length - 1;
             // add last click
             var clickCp = _extends({}, this._clicks[totalLength], { remote: true });
-            // clickCp.x = clickCp.x/this._width;
-            // clickCp.y = clickCp.y/this._height;
             clicks.push(clickCp);
             if (clicks[0].drag) {
-                // add all dragging clicks
+                // add all dragging clicks not emitted so far
                 var lastLocalClick = this._getLastLocalClick(totalLength - 1);
-                while (this._clicks[lastLocalClick].drag && lastLocalClick) {
+                while (lastLocalClick > this._lastEmittedDrag && this._clicks[lastLocalClick].drag && lastLocalClick) {
+                    this._lastEmittedDrag = lastLocalClick;
                     var _clickCp = _extends({}, this._clicks[lastLocalClick], { remote: true });
-                    // clickCp.x = clickCp.x/this._width;
-                    // clickCp.y = clickCp.y/this._height;
                     clicks.unshift(_clickCp);
                     lastLocalClick = this._getLastLocalClick(lastLocalClick - 1);
                 }
@@ -329,12 +318,6 @@ var DrawrCanvas = function () {
         key: 'remoteUpdate',
         value: function remoteUpdate(clicks) {
             this._clickStarts.push(this._lastDrawIndex + 1);
-            clicks.forEach(function (click) {
-                return _extends(click, {
-                    // x: click.x * this._width,
-                    // y: click.y * this._height
-                });
-            });
             this._clicks = this._clicks.concat(clicks);
             this._redraw();
         }

@@ -21,7 +21,6 @@ const STANDARD_OPTIONS = {
  * @returns {void}
  */
 function mousedownListener(e) {
-    this._timeDragging = window.performance.now();
     let mouseX = e.pageX - this._canvasDiv.offsetLeft;
     let mouseY = e.pageY - this._canvasDiv.offsetTop;
 
@@ -51,21 +50,13 @@ function mousemoveListener(e) {
         if (mouseX > drawingAreaWidth && mouseY > 0) {
             if (this._paint) {
                 this._addClick(mouseX, mouseY, true);
-                let t = window.performance.now();
-                if (t - this._timeDragging > 2000) {
-                    this._wrapAndEmitClicks();
-                    this._timeDragging = t;
-                }
+                this._wrapAndEmitClicks();
             }
         }
     } else {
         if (this._paint) {
             this._addClick(mouseX, mouseY, false);
-            let t = window.performance.now();
-            if (t - this._timeDragging > 2000) {
-                this._wrapAndEmitClicks();
-                this._timeDragging = t;
-            }
+            this._wrapAndEmitClicks();
         }
     }
     // Prevent the whole page from dragging if on mobile
@@ -155,6 +146,7 @@ export default class DrawrCanvas {
         this._lastDrawIndex = 0;
         this._clickStarts = [];
         this._redoClicks = [];
+        this._lastEmittedDrag = 0;
     }
 
     /**
@@ -245,18 +237,17 @@ export default class DrawrCanvas {
         // add last click
         let clickCp = Object.assign(
             {}, this._clicks[totalLength], {remote: true});
-        // clickCp.x = clickCp.x/this._width;
-        // clickCp.y = clickCp.y/this._height;
         clicks.push(clickCp);
         if (clicks[0].drag) {
-            // add all dragging clicks
+            // add all dragging clicks not emitted so far
             let lastLocalClick = this._getLastLocalClick(totalLength - 1);
-            while (this._clicks[lastLocalClick].drag && lastLocalClick) {
+            while (lastLocalClick > this._lastEmittedDrag &&
+                this._clicks[lastLocalClick].drag && lastLocalClick
+            ) {
+                this._lastEmittedDrag = lastLocalClick;
                 let clickCp = Object.assign(
                     {}, this._clicks[lastLocalClick], {remote: true}
                 );
-                // clickCp.x = clickCp.x/this._width;
-                // clickCp.y = clickCp.y/this._height;
                 clicks.unshift(clickCp);
                 lastLocalClick = this._getLastLocalClick(lastLocalClick - 1);
             }
@@ -316,10 +307,6 @@ export default class DrawrCanvas {
      */
     remoteUpdate(clicks) {
         this._clickStarts.push(this._lastDrawIndex + 1);
-        clicks.forEach(click => Object.assign(click, {
-            // x: click.x * this._width,
-            // y: click.y * this._height
-        }));
         this._clicks = this._clicks.concat(clicks);
         this._redraw();
     }
