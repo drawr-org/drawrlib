@@ -13,8 +13,9 @@ let preprocessors = {};
 if (argv.examples) {
     // export library for examples
     let webpack = require('webpack');
+    let webpackConfig = require('./webpack.config.js')({});
     // returns a Compiler instance
-    let compiler = webpack(require('./webpack.config.js'));
+    let compiler = webpack(webpackConfig);
     compiler.watch({ // watch options:
         aggregateTimeout: 300, // wait so long for more changes
         poll: true // use polling instead of native watchers
@@ -74,7 +75,7 @@ module.exports = function(config) {
 
         webpack: {
             module: {
-                preLoaders: [
+                rules: [
                     // instrument only testing sources with Istanbul
                     // {
                     //     test: /\.js$/,
@@ -83,7 +84,8 @@ module.exports = function(config) {
                     // },
                     {
                         test: /\.js$/,
-                        loader: 'babel-loader',
+                        enforce: 'pre',
+                        use: ['babel-loader'],
                         include: [
                             path.resolve('src/lib/'),
                             path.resolve('src/test/'),
@@ -92,7 +94,8 @@ module.exports = function(config) {
                     },
                     {
                         test:/.css$/,
-                        loader: 'css-loader'
+                        enforce: 'pre',
+                        use: ['css-loader']
                     }
                 ]
             }
