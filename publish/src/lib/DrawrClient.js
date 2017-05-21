@@ -259,7 +259,8 @@ var DrawrClient = function () {
         value: function sendCanvasUpdate(clicks) {
             if (this._wsClient && this._wsClient.readyState === this._wsClient.OPEN) {
                 if (this._pendingUpdates.length > 0) {
-                    var combinedClicks = this._pendingUpdates.pop().concat(clicks);
+                    var combinedClicks = this._pendingUpdates.concat(clicks);
+                    this._pendingUpdates = [];
                     this._wsClient.send(JSON.stringify({
                         type: 'update-canvas',
                         data: {

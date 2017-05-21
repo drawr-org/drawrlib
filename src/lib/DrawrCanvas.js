@@ -2,6 +2,7 @@
 
 import './../style.css';
 import EventEmitter from 'eventemitter3';
+import Hammer from 'hammerjs';
 
 /**
  * @typedef {Object} DrawingTools
@@ -86,6 +87,10 @@ function mouseupListener() {
     this._wrapAndEmitClicks();
 }
 
+function pressListener(e) {
+    console.log(e);
+}
+
 function resizeListener() {
     this._width = this._canvasDiv.clientWidth;
     this._height = this._canvasDiv.clientHeight;
@@ -121,6 +126,8 @@ function setEventListeners() {
         'touchend', mouseupListener.bind(this), false
     );
     window.addEventListener('resize', resizeListener.bind(this), false);
+    let hammertime = new Hammer(this._canvas);
+    hammertime.on('press', pressListener);
 }
 
 /**

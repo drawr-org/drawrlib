@@ -227,7 +227,8 @@ export default class DrawrClient {
             this._wsClient.readyState === this._wsClient.OPEN
         ) {
             if (this._pendingUpdates.length > 0) {
-                let combinedClicks = this._pendingUpdates.pop().concat(clicks);
+                let combinedClicks = this._pendingUpdates.concat(clicks);
+                this._pendingUpdates = [];
                 this._wsClient.send(
                     JSON.stringify({
                         type: 'update-canvas',

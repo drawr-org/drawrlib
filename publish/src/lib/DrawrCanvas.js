@@ -14,6 +14,10 @@ var _eventemitter = require('eventemitter3');
 
 var _eventemitter2 = _interopRequireDefault(_eventemitter);
 
+var _hammerjs = require('hammerjs');
+
+var _hammerjs2 = _interopRequireDefault(_hammerjs);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -99,6 +103,10 @@ function mouseupListener() {
     this._wrapAndEmitClicks();
 }
 
+function pressListener(e) {
+    console.log(e);
+}
+
 function resizeListener() {
     var _this = this;
 
@@ -124,6 +132,8 @@ function setEventListeners() {
     this._canvas.addEventListener('touchmove', mousemoveListener.bind(this), false);
     this._canvas.addEventListener('touchend', mouseupListener.bind(this), false);
     window.addEventListener('resize', resizeListener.bind(this), false);
+    var hammertime = new _hammerjs2.default(this._canvas);
+    hammertime.on('press', pressListener);
 }
 
 /**
