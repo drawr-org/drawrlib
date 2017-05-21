@@ -2,15 +2,10 @@
   "name": "drawr",
   "version": "0.0.1",
   "description": "drawr core js library",
-  "main": "publish/src/index.js",
-  "directories": {
-    "example": "examples"
-  },
+  "main": "lib/drawr.js",
   "scripts": {
     "start": "karma start",
-    "preexport": "mkdir -p dist && cp src/style.css dist/style.css",
-    "build-publish": "cp src/style.css publish/src/ && babel src/index.js src/lib/*.js --out-dir publish",
-    "export": "webpack && webpack --minified && webpack --unified && webpack --minified --unified",
+    "export": "webpack --env && webpack --env.minified && webpack --env.unified && webpack --env.minified --env.unified",
     "unit-test": "karma start --singleRun --test --browsers=Chrome",
     "test": "./commit-test.sh",
     "doc": "esdoc",
@@ -63,10 +58,9 @@
     "minimist": "^1.2.0",
     "mocha": "^3.1.2",
     "style-loader": "^0.16.1",
-    "webpack": "^1.13.3"
+    "webpack": "^2.5.1"
   },
   "dependencies": {
-    "css-loader": "^0.28.0",
     "eventemitter3": "^2.0.2",
     "hammerjs": "^2.0.8",
     "websocket": "^1.0.23",
