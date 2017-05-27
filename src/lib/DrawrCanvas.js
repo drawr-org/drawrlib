@@ -128,6 +128,7 @@ function setEventListeners() {
     window.addEventListener('resize', resizeListener.bind(this), false);
     let hammertime = new Hammer(this._canvas);
     hammertime.on('press', pressListener);
+    hammertime.on('zoom', zoomListener);
 }
 
 /**
