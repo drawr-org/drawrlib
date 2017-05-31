@@ -2,7 +2,11 @@
 
 import './../style.css';
 import EventEmitter from 'eventemitter3';
-import Hammer from 'hammerjs';
+// import Hammer from 'hammerjs';
+
+import * as THREE from 'three';
+import OrbitControls from 'orbit-controls-es6';
+
 
 /**
  * @typedef {Object} DrawingTools
@@ -23,10 +27,12 @@ const DRAWING_TOOLS = {
  */
 
 const STANDARD_OPTIONS = {
-    color: '#000000',
+    color: 0x000000,
     width: 10,
     type: DRAWING_TOOLS.PEN
 };
+
+const MAX_LINE_POINTS = 500;
 
 /**
  * listener to click on canvas
@@ -35,14 +41,49 @@ const STANDARD_OPTIONS = {
  * @returns {void}
  */
 function mousedownListener(e) {
-    let mouseX = e.pageX - this._canvasDiv.offsetLeft;
-    let mouseY = e.pageY - this._canvasDiv.offsetTop;
+    if (e.touches) {
+        // if multitouch, ignore it
+        if (e.touches.length > 1) {
+            return;
+        }
+    } else {
+        // if right click, ignore it
+        let rightClick = false;
+        if (e.which) {
+            rightClick = (e.which === 3);
+        } else if (e.button) {
+            rightClick = (e.button === 2);
+        }
+        if (rightClick) {
+            return;
+        }
+    }
+    let mouseVector = getMouseCoordinates.call(this, e);
+    let geometry = new THREE.BufferGeometry();
+    let material = new THREE.LineBasicMaterial({
+        color: this._stylingOptions.color,
+        linewidth: this._stylingOptions.width
+    });
+    let positions = new Float32Array(MAX_LINE_POINTS * 3);
+    positions[0] = mouseVector.x;
+    positions[1] = mouseVector.y;
+    positions[2] = 0;
+    positions[3] = mouseVector.x + 0.1;
+    positions[4] = mouseVector.y + 0.1;
+    positions[5] = 0;
+
+    geometry.addAttribute('position', new THREE.BufferAttribute(positions, 3));
+    this._currentLine = new THREE.Line(geometry, material);
+    // if draw range is not set, a line from the origin is rendered as well
+    this._currentLine.geometry.setDrawRange(0, 2);
+    this._scene.add(this._currentLine);
 
     this._paint = true;
+    this._currentLineIndex = 6;
     // click will start on next index
     // save to be able to undo
-    this._clickStarts.push(this._lastDrawIndex + 1);
-    this._addClick(mouseX, mouseY, false);
+    // this._clickStarts.push(this._lastDrawIndex + 1);
+    // this._addClick(mouseX, mouseY, false);
 }
 
 /**
@@ -52,29 +93,29 @@ function mousedownListener(e) {
  * @returns {void}
  */
 function mousemoveListener(e) {
-    let drawingAreaX = this._width;
-    let drawingAreaY = this._height;
-    let drawingAreaWidth = 10;
+    if (this._paint) {
+        let mouseVector = getMouseCoordinates.call(this, e);
+        let positions = this._currentLine.geometry.attributes.position.array;
+        positions[this._currentLineIndex] = mouseVector.x;
+        positions[this._currentLineIndex + 1] = mouseVector.y;
+        positions[this._currentLineIndex + 2] = 0;
 
-    let mouseX = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) -
-        this._canvasDiv.offsetLeft;
-    let mouseY = (e.changedTouches ? e.changedTouches[0].pageY : e.pageY) -
-        this._canvasDiv.offsetTop;
-    if (mouseX < drawingAreaX && mouseY < drawingAreaY) {
-        if (mouseX > drawingAreaWidth && mouseY > 0) {
-            if (this._paint) {
-                this._addClick(mouseX, mouseY, true);
-                this._wrapAndEmitClicks();
-            }
-        }
-    } else {
-        if (this._paint) {
-            this._addClick(mouseX, mouseY, false);
-            this._wrapAndEmitClicks();
-        }
+        this._currentLineIndex += 3;
+        this._currentLine.geometry.attributes.position.needsUpdate = true;
+        // if draw range is not set, a line from the origin is rendered as well
+        this._currentLine.geometry.setDrawRange(0, this._currentLineIndex / 3);
     }
     // Prevent the whole page from dragging if on mobile
     e.preventDefault();
+}
+
+function getMouseCoordinates(e) {
+    let mouseVector = new THREE.Vector3(
+        2 * ((e.clientX - this._canvasDiv.offsetLeft) / this._width) - 1,
+        1 - 2 * ((e.clientY - this._canvasDiv.offsetTop) / this._height),
+        0);
+    mouseVector.unproject(this._camera);
+    return mouseVector;
 }
 
 /**
@@ -84,11 +125,7 @@ function mousemoveListener(e) {
  */
 function mouseupListener() {
     this._paint = false;
-    this._wrapAndEmitClicks();
-}
-
-function pressListener(e) {
-    console.log(e);
+    // this._wrapAndEmitClicks();
 }
 
 function resizeListener() {
@@ -107,28 +144,28 @@ function resizeListener() {
  * @returns {void}
  */
 function setEventListeners() {
-    this._canvas.addEventListener(
+    this._canvasDiv.addEventListener(
         'mousedown', mousedownListener.bind(this), false
     );
-    this._canvas.addEventListener(
+    this._canvasDiv.addEventListener(
         'mouseup', mouseupListener.bind(this), false
     );
-    this._canvas.addEventListener(
+    this._canvasDiv.addEventListener(
         'mousemove', mousemoveListener.bind(this), false
     );
-    this._canvas.addEventListener(
+    this._canvasDiv.addEventListener(
         'touchstart', mousedownListener.bind(this), false
     );
-    this._canvas.addEventListener(
+    this._canvasDiv.addEventListener(
         'touchmove', mousemoveListener.bind(this), false
     );
-    this._canvas.addEventListener(
+    this._canvasDiv.addEventListener(
         'touchend', mouseupListener.bind(this), false
     );
     window.addEventListener('resize', resizeListener.bind(this), false);
-    let hammertime = new Hammer(this._canvas);
-    hammertime.on('press', pressListener);
-    hammertime.on('zoom', zoomListener);
+    // let hammertime = new Hammer(this._canvasDiv);
+    // hammertime.on('press', pressListener);
+    // hammertime.on('zoom', zoomListener);
 }
 
 /**
@@ -144,30 +181,44 @@ export default class DrawrCanvas {
     constructor(divId, options) {
         this._stylingOptions = Object.assign({}, STANDARD_OPTIONS, options);
         this._canvasDiv = document.getElementById(divId);
-        this._canvas = document.createElement('canvas');
-        this._canvas.setAttribute('class', 'DrawrCanvas');
+        // this._canvas = document.createElement('canvas');
+        // this._canvas.setAttribute('class', 'DrawrCanvas');
         // hack so that elements can be fully loaded to get attributes
         this._width = this._canvasDiv.clientWidth;
         this._height = this._canvasDiv.clientHeight;
-        setTimeout(() => {
-            this._canvas.setAttribute('width', this._width);
-            this._canvas.setAttribute('height', this._height);
-        }, 0);
-        this._canvasDiv.appendChild(this._canvas);
+        this._scene = new THREE.Scene();
+        this._scene.background = new THREE.Color(0xffffff);
+        this._camera = new THREE.OrthographicCamera(
+            this._width / -2, this._width / 2,
+            this._height / 2, this._height / -2,
+            1, 1000
+        );
+        this._camera.position.set(0, 0, 5);
+
+        this._renderer = new THREE.WebGLRenderer();
+        this._renderer.setSize(this._width, this._height);
+        this._canvasDiv.appendChild(this._renderer.domElement);
+        this._controls = new OrbitControls(
+            this._camera, this._renderer.domElement);
+        this._controls.enabled = true;
+        // view direction perpendicular to XY-plane
+        this._controls.target.set( 0, 0, 0 );
+        this._controls.enableRotate = false;
+
+        this._controls.maxDistance = 1000;
+        this._controls.minDistance = 1;
+
+        function render() {
+            window.requestAnimationFrame(render.bind(this));
+            this._renderer.render(this._scene, this._camera);
+        }
+        render.apply(this);
         this._paint = false;
         setEventListeners.apply(this);
-        this._context = this._canvas.getContext('2d');
+
         this._eventEmitter = new EventEmitter();
-        // save original context for transformations
-        this._context.save();
-        this._clicks = [];
-        this._zoom = 0;
-        this._scaleX = 1;
-        this._scaleY = 1;
-        this._lastDrawIndex = 0;
-        this._clickStarts = [];
-        this._redoClicks = [];
         this._lastEmittedDrag = 0;
+        this._currentLine;
     }
 
     /**
@@ -342,23 +393,6 @@ export default class DrawrCanvas {
             options.color = '#FFFFFF';
         }
         Object.assign(this._stylingOptions, options);
-    }
-
-    /**
-     * set new zoom level and calls redraw
-     * @param {Number} zoom - new zoom level
-     * @returns {void}
-     */
-    setZoom(zoom) {
-        if (isNaN(zoom) || zoom < 0) {
-            throw new TypeError(
-                'zoom must be an integer equal or bigger than zero'
-            );
-        }
-        this._zoom = zoom;
-        this._scaleX = 1 - this._zoom*0.1;
-        this._scaleY = 1 - this._zoom*0.1;
-        this._redraw(true);
     }
 
     /**
